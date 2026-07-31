@@ -211,6 +211,7 @@
   <button class="tab" onclick="showTab('puestos',this)">Estado por puesto</button>
   <button class="tab" onclick="showTab('bitacora',this)">Bitácora</button>
   <button class="tab" onclick="showTab('historial',this);loadHistorial()">Historial Completo</button>
+  <button class="tab" onclick="showTab('analisis',this);loadHistorial()">Análisis de Rondas</button>
 </div>
 
 <!-- ═══ PANEL: DASHBOARD ═══ -->
@@ -241,10 +242,10 @@
     <span id="alert-text"></span>
   </div>
   <div class="stats">
-    <div class="stat ok"><div class="stat-label">Escaneos</div><div class="stat-value" id="s-today">—</div><div class="stat-sub">de 87 esperados</div></div>
+    <div class="stat ok"><div class="stat-label">Escaneos</div><div class="stat-value" id="s-today">—</div><div class="stat-sub">de 69 esperados</div></div>
     <div class="stat blue"><div class="stat-label">Último escaneo</div><div class="stat-value" id="s-last" style="font-size:18px;padding-top:6px">—</div><div class="stat-sub" id="s-last-post">—</div></div>
     <div class="stat warn"><div class="stat-label">Puestos activos</div><div class="stat-value" id="s-active">—</div><div class="stat-sub">de 23 puestos</div></div>
-    <div class="stat red"><div class="stat-label">Con retraso</div><div class="stat-value" id="s-late">—</div><div class="stat-sub">puestos +2h sin registrar</div></div>
+    <div class="stat red"><div class="stat-label">Rondas completas</div><div class="stat-value" id="s-late">—</div><div class="stat-sub">de 3 esperadas en el turno</div></div>
   </div>
   <div class="progress-wrap">
     <div class="progress-header">
@@ -392,7 +393,14 @@
       <div class="posts-list" id="h-posts-list"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
     </div>
     <div class="section">
-      <div class="section-header"><span class="section-title">Registros del período</span><span class="section-count" id="h-log-count">—</span></div>
+      <div class="section-header">
+        <span class="section-title">Registros del período</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="section-count" id="h-log-count">—</span>
+          <button class="btn" onclick="exportarHistorialCSV()">⬇ CSV</button>
+          <button class="btn" onclick="exportarHistorialPDF()">⬇ PDF</button>
+        </div>
+      </div>
       <div class="log-wrap">
         <table class="log-table" id="table-historial">
           <thead><tr>
@@ -411,6 +419,41 @@
   </div>
 </div>
 
+<!-- ═══ PANEL: ANÁLISIS DE RONDAS ═══ -->
+<div class="panel" id="panel-analisis">
+  <div class="stats" style="margin-bottom:20px">
+    <div class="stat ok"><div class="stat-label">Rondas registradas</div><div class="stat-value" id="a-total-rondas">—</div><div class="stat-sub">en el historial completo</div></div>
+    <div class="stat blue"><div class="stat-label">Duración promedio</div><div class="stat-value" id="a-dur-prom" style="font-size:22px;padding-top:8px">—</div><div class="stat-sub">minutos por ronda completa</div></div>
+    <div class="stat warn"><div class="stat-label">Rondas completas</div><div class="stat-value" id="a-completas">—</div><div class="stat-sub">de las registradas</div></div>
+    <div class="stat red"><div class="stat-label">Rondas con saltos</div><div class="stat-value" id="a-incompletas">—</div><div class="stat-sub">no cubrieron los 23 puestos</div></div>
+  </div>
+
+  <div class="two-col">
+    <div class="section">
+      <div class="section-header"><span class="section-title">Comparativo por guardia</span><span class="section-count" id="a-guardias-count">—</span></div>
+      <div class="log-wrap">
+        <table class="log-table">
+          <thead><tr>
+            <th>Guardia</th><th>Rondas totales</th><th>Completas</th><th>% Cumplimiento</th><th>Duración prom. (min)</th>
+          </tr></thead>
+          <tbody id="a-guardias-body"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="section-title">Duración de cada ronda</span><span class="section-count" id="a-rondas-count">—</span></div>
+      <div class="log-wrap" style="max-height:440px;overflow-y:auto">
+        <table class="log-table">
+          <thead><tr>
+            <th>Fecha/Hora inicio</th><th>Guardia</th><th>Duración (min)</th><th>Puestos</th><th>Estado</th>
+          </tr></thead>
+          <tbody id="a-rondas-body"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
 <footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
 
 <script>
@@ -418,7 +461,7 @@
 // Migrado de Airtable a Google Sheets / Apps Script: GOOGLE_SCRIPT_URL es ahora
 // la única fuente de datos (sirve tanto al dashboard/cards/log como al historial).
 // Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySQvj5gQgqHo4DADso3V2Aokx6V73DaPdJC3xPUPaGTRLddEMDnrUdqi7LMsd9jUjV7A/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzOdhJSqK2NDf1xrYp6i13lDLnXgVhZqZJVEPkEbakAwZ3Jjvpnlfu9pgDixLsPVPT2SQ/exec";
 const PASSWORD_CORRECTA = "Uplace2026";
 
 // AIRTABLE_TOKEN / BASE_ID / TABLE_ID ya no se usan tras la migración.
@@ -426,36 +469,98 @@ const PASSWORD_CORRECTA = "Uplace2026";
 // const AIRTABLE_TOKEN = "";
 // const BASE_ID  = 'appJ5Xh0fe8FJROlO';
 // const TABLE_ID = 'tblCcmPKEkD9myJMn';
-const TARGET   = 87;
+const TARGET   = 69; // 3 rondas x 23 puestos por turno de 24h
 
 const POSTS = [
-  {id:'Puesto-01',name:'Azotea',                level:'P36'},
-  {id:'Puesto-02',name:'Cuarto de Elevadores',  level:'P36'},
-  {id:'Puesto-03',name:'Terraza',                level:'P31'},
-  {id:'Puesto-04',name:'Sky Lounge',             level:'P31'},
-  {id:'Puesto-05',name:'Cuarto de mantenimiento',level:'P23'},
-  {id:'Puesto-06',name:'Cuarto de válvulas',     level:'P13'},
-  {id:'Puesto-07',name:'Ludoteca',               level:'P7' },
-  {id:'Puesto-08',name:'Pet Zone',               level:'P6' },
-  {id:'Puesto-09',name:'Gimnasio',               level:'P6' },
-  {id:'Puesto-10',name:'Alberca',                level:'P6' },
-  {id:'Puesto-11',name:'Sauna',                  level:'P6' },
-  {id:'Puesto-12',name:'Coffee Lounge',          level:'P6' },
-  {id:'Puesto-13',name:'Basura / Estac. Visitas',level:'PB' },
-  {id:'Puesto-14',name:'Monitorista',            level:'PB' },
-  {id:'Puesto-15',name:'Estacionamiento',        level:'S1' },
-  {id:'Puesto-16',name:'Estacionamiento',        level:'S2' },
-  {id:'Puesto-17',name:'Estacionamiento',        level:'S3' },
-  {id:'Puesto-18',name:'Estacionamiento',        level:'S4' },
-  {id:'Puesto-19',name:'Estacionamiento',        level:'N2' },
-  {id:'Puesto-20',name:'Estacionamiento',        level:'N3' },
-  {id:'Puesto-21',name:'Estacionamiento',        level:'N4' },
-  {id:'Puesto-22',name:'Estacionamiento',        level:'N5' },
-  {id:'Puesto-23',name:'Escaleras',              level:'P7' },
+  {id:'Puesto-01',name:'Azotea',                    level:'P36'},
+  {id:'Puesto-02',name:'Cuarto de Elevadores',       level:'P36'},
+  {id:'Puesto-03',name:'Terraza',                    level:'P31'},
+  {id:'Puesto-04',name:'Sky Lounge',                 level:'P31'},
+  {id:'Puesto-05',name:'Cuarto de mantenimiento',    level:'P23'},
+  {id:'Puesto-06',name:'Cuarto de válvulas',         level:'P13'},
+  {id:'Puesto-07',name:'Ludoteca',                   level:'P7' },
+  {id:'Puesto-08',name:'Pet Zone',                   level:'P6' },
+  {id:'Puesto-09',name:'Gimnasio',                   level:'P6' },
+  {id:'Puesto-10',name:'Alberca',                    level:'P6' },
+  {id:'Puesto-11',name:'Sauna',                      level:'P6' },
+  {id:'Puesto-12',name:'Coffee Lounge',              level:'P6' },
+  {id:'Puesto-13',name:'Basura / Estac. Visitas',    level:'PB' },
+  {id:'Puesto-14',name:'Monitorista',                level:'PB' },
+  {id:'Puesto-15',name:'Estacionamiento',            level:'S1' },
+  {id:'Puesto-16',name:'Estacionamiento',            level:'S2' },
+  {id:'Puesto-17',name:'Estacionamiento',            level:'S3' },
+  {id:'Puesto-18',name:'Estacionamiento',            level:'S4' },
+  {id:'Puesto-19',name:'Estacionamiento',            level:'N2' },
+  {id:'Puesto-20',name:'Estacionamiento',            level:'N3' },
+  {id:'Puesto-21',name:'Estacionamiento',            level:'N4' },
+  {id:'Puesto-22',name:'Estacionamiento',            level:'N5' },
+  {id:'Puesto-23',name:'Escaleras',                  level:'P7' },
 ];
 // Mapa id→nombre completo para dropdown
 const POST_LABELS = {};
 POSTS.forEach(p => { POST_LABELS[p.id] = `${p.id} ${p.name} (${p.level})`; });
+
+// ── LÓGICA DE RONDAS (reemplaza el criterio viejo de "+2h = con retraso") ──
+// El guardia hace 3 rondines completos por turno de 24h, siempre empezando
+// en Puesto-01 y avanzando en orden hasta Puesto-23. Cada vez que aparece
+// un escaneo de Puesto-01 se considera el inicio de una ronda nueva.
+const ALL_POST_IDS = POSTS.map(p => p.id);
+const RONDAS_ESPERADAS_POR_TURNO = 3;
+
+function postIndex(id) {
+  const m = (id || '').match(/(\d+)/);
+  return m ? parseInt(m[1], 10) : -1;
+}
+
+// records: array de {fields:{Checkpoint,Timestamp,Guardia,...}} ya filtrados al turno actual
+function detectarRondas(records) {
+  const sorted = [...records].sort((a, b) => new Date(a.fields.Timestamp) - new Date(b.fields.Timestamp));
+  const rondas = [];
+  let actual = null;
+  sorted.forEach(r => {
+    const cp = (r.fields.Checkpoint || '').split(' ')[0];
+    const ts = r.fields.Timestamp;
+    if (cp === 'Puesto-01' || !actual) {
+      if (actual) rondas.push(actual);
+      actual = { scans: new Map() };
+    }
+    actual.scans.set(cp, { ts, guardia: r.fields.Guardia });
+  });
+  if (actual) rondas.push(actual);
+  return rondas;
+}
+
+// Regresa el estado completo del turno: rondas cerradas completas, ronda en
+// curso (si la hay), y qué puestos están saltados vs. simplemente pendientes
+// dentro de esa ronda en curso.
+function calcularEstadoRondas(records) {
+  const rondas = detectarRondas(records);
+  let rondasCompletas = 0;
+  let rondaActual = null;
+
+  rondas.forEach((ronda, i) => {
+    const completa = ALL_POST_IDS.every(id => ronda.scans.has(id));
+    const esUltima = i === rondas.length - 1;
+    if (completa) rondasCompletas++;
+    else if (esUltima) rondaActual = ronda; // la única ronda que puede seguir "en curso"
+  });
+
+  let saltados = [], pendientes = [], maxIndex = -1;
+  if (rondaActual) {
+    rondaActual.scans.forEach((_, id) => { maxIndex = Math.max(maxIndex, postIndex(id)); });
+    ALL_POST_IDS.forEach(id => {
+      if (rondaActual.scans.has(id)) return;
+      if (postIndex(id) <= maxIndex) saltados.push(id); // ya se pasó ese punto y no lo escaneó
+      else pendientes.push(id); // todavía no le toca en el recorrido
+    });
+  } else {
+    // no hay ronda en curso: o no ha empezado ninguna, o todas las cerradas están completas
+    pendientes = [...ALL_POST_IDS];
+  }
+
+  const totalCubiertos = rondasCompletas * ALL_POST_IDS.length + (rondaActual ? rondaActual.scans.size : 0);
+  return { rondasCompletas, rondaActual, saltados, pendientes, maxIndex, totalCubiertos };
+}
 
 // ── SESIÓN ────────────────────────────────────────────────────────────────────
 const SESSION_KEY = 'uplace_session_v2';
@@ -615,20 +720,47 @@ function renderDashboard(records){
   const turnoRecs=records.filter(r=>isInCurrentTurno(r.fields.Timestamp||r.fields['Created Time']));
   const lastScanBase={};
   baseRecs.forEach(r=>{const f=r.fields;const cp=(f.Checkpoint||'').split(' ')[0];const ts=f.Timestamp||f['Created Time'];if(!lastScanBase[cp]||new Date(ts)>new Date(lastScanBase[cp].ts))lastScanBase[cp]={ts};});
-  let lateCount=0;
-  if(useTurnoLogic){const lsT={};turnoRecs.forEach(r=>{const f=r.fields;const cp=(f.Checkpoint||'').split(' ')[0];const ts=f.Timestamp||f['Created Time'];if(!lsT[cp]||new Date(ts)>new Date(lsT[cp].ts))lsT[cp]={ts};});POSTS.forEach(p=>{const s=lsT[p.id];if(s&&minsAgo(s.ts)>120)lateCount++;});}
+
+  const estadoRondas=useTurnoLogic?calcularEstadoRondas(turnoRecs):null;
+  const rondasCompletas=estadoRondas?estadoRondas.rondasCompletas:0;
+
   const latest=baseRecs[0];const latestTs=latest?(latest.fields.Timestamp||latest.fields['Created Time']):null;
-  setText('s-today',baseRecs.length);setText('s-active',Object.keys(lastScanBase).length);setText('s-late',lateCount);
-  setText('s-last',fmtTime(latestTs));setText('s-last-post',(latest?.fields?.Checkpoint||'—').replace(/PUESTO-\d+\s*/,''));
-  const pct=Math.min(Math.round((turnoRecs.length/TARGET)*100),100);
+  setText('s-today',baseRecs.length);setText('s-active',Object.keys(lastScanBase).length);
+  setText('s-late',useTurnoLogic?`${rondasCompletas}/${RONDAS_ESPERADAS_POR_TURNO}`:'—');
+  setText('s-last',fmtTime(latestTs));setText('s-last-post',(latest?.fields?.Checkpoint||'—').replace(/Puesto-\d+\s*/i,''));
+
+  const pct=useTurnoLogic&&estadoRondas?Math.min(Math.round((estadoRondas.totalCubiertos/TARGET)*100),100):Math.min(Math.round((turnoRecs.length/TARGET)*100),100);
   setText('progress-pct',pct+'%');
   const fill=document.getElementById('progress-fill');if(fill){fill.style.width=pct+'%';fill.className='progress-fill'+(pct>=80?'':pct>=50?' warn':' low');}
+
   const banner=document.getElementById('alert-banner');
-  if(banner){if(lateCount>0){banner.classList.add('show');setText('alert-text',`${lateCount} puesto(s) sin escanear en más de 2 horas.`);}else banner.classList.remove('show');}
-  // Posts list
-  const lsTurnoFull={};turnoRecs.forEach(r=>{const f=r.fields;const cp=(f.Checkpoint||'').split(' ')[0];const ts=f.Timestamp||f['Created Time'];if(!lsTurnoFull[cp]||new Date(ts)>new Date(lsTurnoFull[cp].ts))lsTurnoFull[cp]={ts,guardia:f.Guardia};});
+  if(banner){
+    const saltados=estadoRondas?estadoRondas.saltados:[];
+    if(useTurnoLogic&&saltados.length>0){
+      const nombres=saltados.map(id=>{const p=POSTS.find(pp=>pp.id===id);return p?`${id} ${p.name}`:id;}).join(', ');
+      banner.classList.add('show');setText('alert-text',`Puesto(s) saltado(s) en la ronda actual: ${nombres}`);
+    } else banner.classList.remove('show');
+  }
+
+  // Posts list — estado por puesto basado en la ronda en curso del turno
   const postsList=document.getElementById('posts-list');
-  if(postsList){postsList.innerHTML='';POSTS.forEach(p=>{const s=lsTurnoFull[p.id];const mins=s?minsAgo(s.ts):null;const status=getStatusForTurno(s?s.ts:null,mins);const el=document.createElement('div');el.className='post-item';el.innerHTML=`<div class="post-dot ${status}"></div><div class="post-info"><div class="post-id">${p.id} · ${p.level}</div><div class="post-name">${p.name}</div></div><div class="post-time ${status}">${s?fmtTime(s.ts):'—'}<br><span style="font-size:9px;color:var(--muted)">${mins!==null?mins+' min':'pendiente'}</span></div><div class="pill ${status}">${badgeLabel(status)}</div>`;postsList.appendChild(el);});}
+  if(postsList){
+    postsList.innerHTML='';
+    POSTS.forEach(p=>{
+      let status='pending',timeLabel='—',subLabel='pendiente';
+      if(useTurnoLogic&&estadoRondas){
+        if(estadoRondas.saltados.includes(p.id)){status='late';subLabel='SALTADO en esta ronda';}
+        else if(estadoRondas.rondaActual&&estadoRondas.rondaActual.scans.has(p.id)){
+          status='ok';const s=estadoRondas.rondaActual.scans.get(p.id);timeLabel=fmtTime(s.ts);subLabel='escaneado';
+        } else if(estadoRondas.rondasCompletas>0){status='ok';subLabel=`cubierto en ronda(s) anterior(es)`;}
+        else{subLabel='pendiente en esta ronda';}
+      }
+      const el=document.createElement('div');el.className='post-item';
+      el.innerHTML=`<div class="post-dot ${status}"></div><div class="post-info"><div class="post-id">${p.id} · ${p.level}</div><div class="post-name">${p.name}</div></div><div class="post-time ${status}">${timeLabel}<br><span style="font-size:9px;color:var(--muted)">${subLabel}</span></div><div class="pill ${status}">${badgeLabel(status)}</div>`;
+      postsList.appendChild(el);
+    });
+  }
+
   // Table with sort
   setText('log-count-dash',`${baseRecs.length} en período`);
   const tbody=document.getElementById('log-body-dash');
@@ -658,15 +790,21 @@ function renderCards(){
   const lastScan={};const scanCount={};
   filtered.forEach(r=>{const f=r.fields;const cp=(f.Checkpoint||'').split(' ')[0];const ts=f.Timestamp||f['Created Time'];scanCount[cp]=(scanCount[cp]||0)+1;if(!lastScan[cp]||new Date(ts)>new Date(lastScan[cp].ts))lastScan[cp]={ts,guardia:f.Guardia,turno:f.Turno};});
   const useTurnoLogic=(filterDate==='hoy');let doneCount=0;
+  const estadoRondas=useTurnoLogic?calcularEstadoRondas(allRecords.filter(r=>isInCurrentTurno(r.fields.Timestamp||r.fields['Created Time']))):null;
   const grid=document.getElementById('cards-grid');if(!grid)return;grid.innerHTML='';
   POSTS.forEach(p=>{
     const s=lastScan[p.id];let status;
-    if(useTurnoLogic){const inTurno=s&&new Date(s.ts)>=getTurnoStart();const mins=inTurno?minsAgo(s.ts):null;status=getStatusForTurno(inTurno?s.ts:null,mins);}
+    if(useTurnoLogic&&estadoRondas){
+      if(estadoRondas.saltados.includes(p.id))status='late';
+      else if((estadoRondas.rondaActual&&estadoRondas.rondaActual.scans.has(p.id))||estadoRondas.rondasCompletas>0)status='ok';
+      else status='pending';
+    }
     else status=s?'ok':'pending';
     if(status==='ok')doneCount++;
     const mins=s?minsAgo(s.ts):null;const count=scanCount[p.id]||0;
     const card=document.createElement('div');card.className=`post-card ${status}`;
-    card.innerHTML=`<div class="card-top"><div><div class="card-id">${p.id}</div><div class="card-name">${p.name} — ${p.level}</div></div><div class="card-badge ${status}">${badgeLabel(status)}</div></div><div class="card-ago ${status}">${useTurnoLogic?agoText(s&&new Date(s.ts)>=getTurnoStart()?mins:null):(s?fmtDT(s.ts):'Sin registro')}</div><hr class="card-divider"><div class="card-rows"><div class="card-row"><span class="card-row-label">Último:</span><span class="card-row-value">${s?fmtDT(s.ts):'—'}</span></div><div class="card-row"><span class="card-row-label">Guardia:</span><span class="card-row-value">${s?(s.guardia||'—'):'—'}</span></div><div class="card-row"><span class="card-row-label">Rondines:</span><span class="card-row-value">${count}</span></div></div>`;
+    const agoLabel=status==='late'?'Saltado en la ronda actual':(s?fmtDT(s.ts):'Sin registro');
+    card.innerHTML=`<div class="card-top"><div><div class="card-id">${p.id}</div><div class="card-name">${p.name} — ${p.level}</div></div><div class="card-badge ${status}">${badgeLabel(status)}</div></div><div class="card-ago ${status}">${agoLabel}</div><hr class="card-divider"><div class="card-rows"><div class="card-row"><span class="card-row-label">Último:</span><span class="card-row-value">${s?fmtDT(s.ts):'—'}</span></div><div class="card-row"><span class="card-row-label">Guardia:</span><span class="card-row-value">${s?(s.guardia||'—'):'—'}</span></div><div class="card-row"><span class="card-row-label">Rondines:</span><span class="card-row-value">${count}</span></div></div>`;
     grid.appendChild(card);
   });
   setText('c-done',doneCount);setText('c-pend',POSTS.length-doneCount);
@@ -757,6 +895,7 @@ async function loadHistorial(){
     histData=await fetchHistorial();histLoaded=true;
     buildHistMonthSelector();buildHistGuardiaSelector();buildHistPuestoSelector();
     renderHistorial();
+    renderAnalisisRondas();
   }catch(err){
     const e=`<div class="error-box">Error Google Sheets: ${err.message}</div>`;
     if(hlb)hlb.innerHTML=`<tr><td colspan="6">${e}</td></tr>`;if(hpl)hpl.innerHTML=e;
@@ -845,6 +984,7 @@ function renderHistorial(){
     if(histFilterPuesto&&r.checkpoint.split(' ')[0]!==histFilterPuesto)return false;
     return true;
   });
+  histFilteredCache=filtered; // usado por exportarHistorialCSV/PDF
 
   const puestosUnicos=new Set(filtered.map(r=>r.checkpoint.split(' ')[0])).size;
   const guardiasUnicas=new Set(filtered.map(r=>r.guardia).filter(g=>g&&g!=='—')).size;
@@ -897,6 +1037,156 @@ function renderHistorial(){
       tbody.appendChild(tr);
     });
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ANÁLISIS DE RONDAS — duración por ronda + comparativo por guardia
+// Usa histData completo (todo el historial), no solo el turno actual.
+// ══════════════════════════════════════════════════════════════════════════
+let histFilteredCache=[];
+
+function turnoKeyFromDate_(d){
+  const dd=new Date(d);
+  if(dd.getHours()<7)dd.setDate(dd.getDate()-1);
+  dd.setHours(0,0,0,0);
+  return dd.toDateString();
+}
+
+function calcularRondasHistoricas(){
+  const porTurno={};
+  histData.forEach(r=>{
+    if(!r._date)return;
+    const key=turnoKeyFromDate_(r._date);
+    if(!porTurno[key])porTurno[key]=[];
+    porTurno[key].push(r);
+  });
+
+  const rondasCrudas=[];
+  Object.values(porTurno).forEach(regs=>{
+    const ordenados=[...regs].sort((a,b)=>a._date-b._date);
+    let actual=null;
+    ordenados.forEach(r=>{
+      const cp=r.checkpoint.split(' ')[0];
+      if(cp==='Puesto-01'||!actual){
+        if(actual)rondasCrudas.push(actual);
+        actual={scans:new Map(),guardias:{}};
+      }
+      actual.scans.set(cp,r._date);
+      actual.guardias[r.guardia||'—']=(actual.guardias[r.guardia||'—']||0)+1;
+    });
+    if(actual)rondasCrudas.push(actual);
+  });
+
+  return rondasCrudas.map(r=>{
+    const tiempos=[...r.scans.values()].filter(Boolean);
+    const inicio=new Date(Math.min(...tiempos));
+    const fin=new Date(Math.max(...tiempos));
+    const duracionMin=Math.round((fin-inicio)/60000);
+    const completa=ALL_POST_IDS.every(id=>r.scans.has(id));
+    const guardiaPrincipal=Object.entries(r.guardias).sort((a,b)=>b[1]-a[1])[0]?.[0]||'—';
+    return{inicio,fin,duracionMin,completa,cubiertos:r.scans.size,guardia:guardiaPrincipal};
+  }).sort((a,b)=>b.inicio-a.inicio);
+}
+
+function calcularComparativoGuardias(rondas){
+  const porGuardia={};
+  rondas.forEach(r=>{
+    if(r.guardia==='—')return; // sin guardia asignado, no cuenta en el comparativo
+    if(!porGuardia[r.guardia])porGuardia[r.guardia]={total:0,completas:0,duraciones:[]};
+    porGuardia[r.guardia].total++;
+    if(r.completa)porGuardia[r.guardia].completas++;
+    if(r.completa)porGuardia[r.guardia].duraciones.push(r.duracionMin);
+  });
+  return Object.entries(porGuardia).map(([guardia,d])=>({
+    guardia,total:d.total,completas:d.completas,
+    pct:Math.round((d.completas/d.total)*100),
+    duracionProm:d.duraciones.length?Math.round(d.duraciones.reduce((a,b)=>a+b,0)/d.duraciones.length):null
+  })).sort((a,b)=>b.total-a.total);
+}
+
+function renderAnalisisRondas(){
+  const rondas=calcularRondasHistoricas();
+  const completas=rondas.filter(r=>r.completa);
+  const incompletas=rondas.length-completas.length;
+  const durProm=completas.length?Math.round(completas.reduce((a,b)=>a+b.duracionMin,0)/completas.length):0;
+
+  setText('a-total-rondas',rondas.length);
+  setText('a-dur-prom',completas.length?`${durProm} min`:'—');
+  setText('a-completas',completas.length);
+  setText('a-incompletas',incompletas);
+
+  const comparativo=calcularComparativoGuardias(rondas);
+  setText('a-guardias-count',`${comparativo.length} guardias`);
+  const gBody=document.getElementById('a-guardias-body');
+  if(gBody){
+    gBody.innerHTML='';
+    if(comparativo.length===0){gBody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin datos suficientes</td></tr>';}
+    else comparativo.forEach(g=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${g.guardia}</td><td>${g.total}</td><td>${g.completas}</td><td style="color:${g.pct>=80?'var(--ok)':g.pct>=50?'var(--warn)':'var(--danger)'}">${g.pct}%</td><td>${g.duracionProm!==null?g.duracionProm:'—'}</td>`;
+      gBody.appendChild(tr);
+    });
+  }
+
+  setText('a-rondas-count',`${rondas.length} rondas`);
+  const rBody=document.getElementById('a-rondas-body');
+  if(rBody){
+    rBody.innerHTML='';
+    if(rondas.length===0){rBody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin datos suficientes</td></tr>';}
+    else rondas.slice(0,100).forEach(r=>{
+      const tr=document.createElement('tr');
+      const estado=r.completa?`<span class="pill ok">Completa</span>`:`<span class="pill late">Saltos (${r.cubiertos}/${ALL_POST_IDS.length})</span>`;
+      tr.innerHTML=`<td style="color:var(--muted)">${fmtDT(r.inicio.toISOString())}</td><td>${r.guardia}</td><td>${r.duracionMin}</td><td>${r.cubiertos}/${ALL_POST_IDS.length}</td><td>${estado}</td>`;
+      rBody.appendChild(tr);
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// EXPORT — CSV real (datos exactos) y PDF (impresión del navegador)
+// ══════════════════════════════════════════════════════════════════════════
+function exportarHistorialCSV(){
+  if(!histFilteredCache.length){alert('No hay registros para exportar con los filtros actuales.');return;}
+  const headers=['#','Checkpoint','Timestamp','Turno','Guardia','Notas'];
+  const escapeCSV=v=>{
+    const s=(v===undefined||v===null)?'':String(v);
+    return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;
+  };
+  const filas=histFilteredCache.map(r=>[r.num,r.checkpoint,r.timestamp,r.turno,r.guardia,r.notas].map(escapeCSV).join(','));
+  const csv='\uFEFF'+[headers.join(','),...filas].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`historial_rondines_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportarHistorialPDF(){
+  // Usa el diálogo de impresión del navegador ("Guardar como PDF") sobre la
+  // tabla actualmente filtrada — sin dependencias externas.
+  if(!histFilteredCache.length){alert('No hay registros para exportar con los filtros actuales.');return;}
+  const filas=histFilteredCache.map(r=>`<tr><td>${r.num}</td><td>${r.checkpoint}</td><td>${r.timestamp}</td><td>${r.turno}</td><td>${r.guardia}</td><td>${r.notas}</td></tr>`).join('');
+  const ventana=window.open('','_blank');
+  ventana.document.write(`
+    <html><head><title>Historial de Rondines</title>
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;color:#111;}
+      h1{font-size:16px;margin-bottom:4px;}
+      p{color:#555;margin-top:0;margin-bottom:16px;}
+      table{width:100%;border-collapse:collapse;}
+      th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;}
+      th{background:#f0f0f0;}
+    </style></head><body>
+    <h1>UPLACE Periférico Torre 1 — Historial de Rondines</h1>
+    <p>Generado: ${new Date().toLocaleString('es-MX')} · ${histFilteredCache.length} registros</p>
+    <table><thead><tr><th>#</th><th>Puesto</th><th>Fecha/Hora</th><th>Turno</th><th>Guardia</th><th>Notas</th></tr></thead>
+    <tbody>${filas}</tbody></table>
+    </body></html>
+  `);
+  ventana.document.close();
+  ventana.focus();
+  setTimeout(()=>ventana.print(),300);
 }
 </script>
 </body>
