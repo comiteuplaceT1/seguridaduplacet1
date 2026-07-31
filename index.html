@@ -429,29 +429,28 @@ const PASSWORD_CORRECTA = "Uplace2026";
 const TARGET   = 87;
 
 const POSTS = [
-  {id:'PUESTO-01',name:'Petzone / Jardín',    level:'P6' },
-  {id:'PUESTO-02',name:'Alberca / Jacuzzi',   level:'P6' },
-  {id:'PUESTO-03',name:'Coffee Place',        level:'PB' },
-  {id:'PUESTO-04',name:'Monitoristas',        level:'PB' },
-  {id:'PUESTO-05',name:'Salón + Terraza',     level:'P31'},
-  {id:'PUESTO-06',name:'Sótano 1',            level:'S1' },
-  {id:'PUESTO-07',name:'Sótano 2',            level:'S2' },
-  {id:'PUESTO-08',name:'Sótano 3',            level:'S3' },
-  {id:'PUESTO-09',name:'Sótano 4',            level:'S4' },
-  {id:'PUESTO-10',name:'Estacionamiento',     level:'P2' },
-  {id:'PUESTO-11',name:'Estacionamiento',     level:'P3' },
-  {id:'PUESTO-12',name:'Estacionamiento',     level:'P4' },
-  {id:'PUESTO-13',name:'Estacionamiento',     level:'P5' },
-  {id:'PUESTO-14',name:'Piso Residentes',     level:'P9' },
-  {id:'PUESTO-15',name:'Piso Residentes',     level:'P12'},
-  {id:'PUESTO-16',name:'Piso Residentes',     level:'P15'},
-  {id:'PUESTO-17',name:'Piso Residentes',     level:'P18'},
-  {id:'PUESTO-18',name:'Piso Residentes',     level:'P21'},
-  {id:'PUESTO-19',name:'Piso Residentes',     level:'P24'},
-  {id:'PUESTO-20',name:'Piso Residentes',     level:'P27'},
-  {id:'PUESTO-21',name:'Piso Residentes',     level:'P30'},
-  {id:'PUESTO-22',name:'Piso Residentes',     level:'P33'},
-  {id:'PUESTO-23',name:'Piso Residentes',     level:'P36'},
+  {id:'Puesto-01',name:'Azotea',                level:'P36'},
+  {id:'Puesto-02',name:'Terraza',                level:'P31'},
+  {id:'Puesto-03',name:'Sky Lounge',             level:'P31'},
+  {id:'Puesto-04',name:'Cuarto de mantenimiento',level:'P23'},
+  {id:'Puesto-05',name:'Cuarto de válvulas',     level:'P13'},
+  {id:'Puesto-06',name:'Ludoteca',               level:'P7' },
+  {id:'Puesto-07',name:'Pet Zone',               level:'P6' },
+  {id:'Puesto-08',name:'Gimnasio',               level:'P6' },
+  {id:'Puesto-09',name:'Alberca',                level:'P6' },
+  {id:'Puesto-10',name:'Sauna',                  level:'P6' },
+  {id:'Puesto-11',name:'Coffee Lounge',          level:'P6' },
+  {id:'Puesto-12',name:'Basura / Estac. Visitas',level:'PB' },
+  {id:'Puesto-13',name:'Monitorista',            level:'PB' },
+  {id:'Puesto-14',name:'Estacionamiento',        level:'S1' },
+  {id:'Puesto-15',name:'Estacionamiento',        level:'S2' },
+  {id:'Puesto-16',name:'Estacionamiento',        level:'S3' },
+  {id:'Puesto-17',name:'Estacionamiento',        level:'S4' },
+  {id:'Puesto-18',name:'Estacionamiento',        level:'N2' },
+  {id:'Puesto-19',name:'Estacionamiento',        level:'N3' },
+  {id:'Puesto-20',name:'Estacionamiento',        level:'N4' },
+  {id:'Puesto-21',name:'Estacionamiento',        level:'N5' },
+  {id:'Puesto-22',name:'Escaleras',              level:'P7' },
 ];
 // Mapa id→nombre completo para dropdown
 const POST_LABELS = {};
@@ -703,7 +702,7 @@ async function loadData(){
     populateGuardias(allRecords);
     renderDashboard(allRecords);renderCards();renderLog();
   }catch(err){
-    const e=`<div class="error-box">Error Airtable: ${err.message}</div>`;
+    const e=`<div class="error-box">Error cargando datos: ${err.message}</div>`;
     const pl=document.getElementById('posts-list');if(pl)pl.innerHTML=e;
     const cg=document.getElementById('cards-grid');if(cg)cg.innerHTML=e;
   }
