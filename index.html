@@ -242,9 +242,9 @@
     <span id="alert-text"></span>
   </div>
   <div class="stats">
-    <div class="stat ok"><div class="stat-label">Escaneos</div><div class="stat-value" id="s-today">—</div><div class="stat-sub">de 69 esperados</div></div>
+    <div class="stat ok"><div class="stat-label">Escaneos</div><div class="stat-value" id="s-today">—</div><div class="stat-sub">de 57 esperados</div></div>
     <div class="stat blue"><div class="stat-label">Último escaneo</div><div class="stat-value" id="s-last" style="font-size:18px;padding-top:6px">—</div><div class="stat-sub" id="s-last-post">—</div></div>
-    <div class="stat warn"><div class="stat-label">Puestos activos</div><div class="stat-value" id="s-active">—</div><div class="stat-sub">de 23 puestos</div></div>
+    <div class="stat warn"><div class="stat-label">Puestos activos</div><div class="stat-value" id="s-active">—</div><div class="stat-sub">de 19 puestos</div></div>
     <div class="stat red"><div class="stat-label">Rondas completas</div><div class="stat-value" id="s-late">—</div><div class="stat-sub">de 3 esperadas en el turno</div></div>
   </div>
   <div class="progress-wrap">
@@ -300,7 +300,7 @@
     <select class="filter-select" id="guardia-select" onchange="setGuardiaFilter(this.value)"><option value="">Todos</option></select>
   </div>
   <div class="cards-stats">
-    <div class="cstat total"><div class="cstat-label">Total Puestos</div><div class="cstat-value">23</div></div>
+    <div class="cstat total"><div class="cstat-label">Total Puestos</div><div class="cstat-value">19</div></div>
     <div class="cstat done"><div class="cstat-label">Completados</div><div class="cstat-value" id="c-done">—</div></div>
     <div class="cstat pend"><div class="cstat-label">Pendientes</div><div class="cstat-value" id="c-pend">—</div></div>
   </div>
@@ -383,7 +383,7 @@
   <div class="stats" style="margin-bottom:20px">
     <div class="stat ok"><div class="stat-label">Escaneos en período</div><div class="stat-value" id="h-total">—</div><div class="stat-sub">registros totales</div></div>
     <div class="stat blue"><div class="stat-label">Promedio diario</div><div class="stat-value" id="h-avg" style="font-size:22px;padding-top:8px">—</div><div class="stat-sub">escaneos/día</div></div>
-    <div class="stat warn"><div class="stat-label">Puestos cubiertos</div><div class="stat-value" id="h-puestos">—</div><div class="stat-sub">de 23 puestos</div></div>
+    <div class="stat warn"><div class="stat-label">Puestos cubiertos</div><div class="stat-value" id="h-puestos">—</div><div class="stat-sub">de 19 puestos</div></div>
     <div class="stat red"><div class="stat-label">Guardias activos</div><div class="stat-value" id="h-guardias">—</div><div class="stat-sub">en el período</div></div>
   </div>
 
@@ -454,22 +454,22 @@
   </div>
 </div>
 
-<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min · Diseñado por Pablo Cueto para la Comunidad</footer>
+<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
 
 <script>
 // ── CREDENCIALES ──────────────────────────────────────────────────────────────
 // Migrado de Airtable a Google Sheets / Apps Script: GOOGLE_SCRIPT_URL es ahora
 // la única fuente de datos (sirve tanto al dashboard/cards/log como al historial).
 // Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzOdhJSqK2NDf1xrYp6i13lDLnXgVhZqZJVEPkEbakAwZ3Jjvpnlfu9pgDixLsPVPT2SQ/exec";
-const PASSWORD_CORRECTA = "Uplace2026";
+const GOOGLE_SCRIPT_URL = "";
+const PASSWORD_CORRECTA = "";
 
 // AIRTABLE_TOKEN / BASE_ID / TABLE_ID ya no se usan tras la migración.
 // Se dejan comentados por si se necesita hacer rollback.
 // const AIRTABLE_TOKEN = "";
 // const BASE_ID  = 'appJ5Xh0fe8FJROlO';
 // const TABLE_ID = 'tblCcmPKEkD9myJMn';
-const TARGET   = 69; // 3 rondas x 23 puestos por turno de 24h
+const TARGET   = 57; // 3 rondas x 19 puestos por turno de 24h
 
 const POSTS = [
   {id:'Puesto-01',name:'Azotea',                    level:'P36'},
@@ -478,23 +478,19 @@ const POSTS = [
   {id:'Puesto-04',name:'Sky Lounge',                 level:'P31'},
   {id:'Puesto-05',name:'Cuarto de mantenimiento',    level:'P23'},
   {id:'Puesto-06',name:'Cuarto de válvulas',         level:'P13'},
-  {id:'Puesto-07',name:'Ludoteca',                   level:'P7' },
-  {id:'Puesto-08',name:'Pet Zone',                   level:'P6' },
-  {id:'Puesto-09',name:'Gimnasio',                   level:'P6' },
-  {id:'Puesto-10',name:'Alberca',                    level:'P6' },
-  {id:'Puesto-11',name:'Sauna',                      level:'P6' },
-  {id:'Puesto-12',name:'Coffee Lounge',              level:'P6' },
-  {id:'Puesto-13',name:'Basura / Estac. Visitas',    level:'PB' },
-  {id:'Puesto-14',name:'Monitorista',                level:'PB' },
-  {id:'Puesto-15',name:'Estacionamiento',            level:'S1' },
-  {id:'Puesto-16',name:'Estacionamiento',            level:'S2' },
-  {id:'Puesto-17',name:'Estacionamiento',            level:'S3' },
-  {id:'Puesto-18',name:'Estacionamiento',            level:'S4' },
-  {id:'Puesto-19',name:'Estacionamiento',            level:'N2' },
-  {id:'Puesto-20',name:'Estacionamiento',            level:'N3' },
-  {id:'Puesto-21',name:'Estacionamiento',            level:'N4' },
-  {id:'Puesto-22',name:'Estacionamiento',            level:'N5' },
-  {id:'Puesto-23',name:'Escaleras',                  level:'P7' },
+  {id:'Puesto-07',name:'Gimnasio',                   level:'P6' },
+  {id:'Puesto-08',name:'Alberca',                    level:'P6' },
+  {id:'Puesto-09',name:'Salón de Yoga',              level:'P6' },
+  {id:'Puesto-10',name:'Cuarto de Boilers (Asadores)',level:'P6'},
+  {id:'Puesto-11',name:'Asadores',                   level:'P6' },
+  {id:'Puesto-12',name:'Sauna',                      level:'P6' },
+  {id:'Puesto-13',name:'Calderas de Alberca',        level:'P7' },
+  {id:'Puesto-14',name:'Estacionamiento 3',          level:'S3' },
+  {id:'Puesto-15',name:'Motobombas',                 level:'S2' },
+  {id:'Puesto-16',name:'Basura / Estac. Visitas',    level:'PB' },
+  {id:'Puesto-17',name:'Coffee Place',               level:'PB' },
+  {id:'Puesto-18',name:'Monitorista',                level:'PB' },
+  {id:'Puesto-19',name:'Estacionamiento',            level:'S1' },
 ];
 // Mapa id→nombre completo para dropdown
 const POST_LABELS = {};
