@@ -212,6 +212,7 @@
   <button class="tab" onclick="showTab('bitacora',this)">Bitácora</button>
   <button class="tab" onclick="showTab('historial',this);loadHistorial()">Historial Completo</button>
   <button class="tab" onclick="showTab('analisis',this);loadHistorial()">Análisis de Rondas</button>
+  <button class="tab" onclick="showTab('admin',this)">Administración</button>
 </div>
 
 <!-- ═══ PANEL: DASHBOARD ═══ -->
@@ -454,6 +455,25 @@
   </div>
 </div>
 
+<!-- ═══ PANEL: ADMINISTRACIÓN — registros separados de los de seguridad ═══ -->
+<div class="panel" id="panel-admin">
+  <div class="stats" style="margin-bottom:20px">
+    <div class="stat ok"><div class="stat-label">Registros de administración</div><div class="stat-value" id="ad-total">—</div><div class="stat-sub">total acumulado</div></div>
+    <div class="stat blue"><div class="stat-label">Último registro</div><div class="stat-value" id="ad-last" style="font-size:18px;padding-top:6px">—</div><div class="stat-sub" id="ad-last-post">—</div></div>
+    <div class="stat warn"><div class="stat-label">Personas distintas</div><div class="stat-value" id="ad-personas">—</div><div class="stat-sub">han registrado recorrido</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-header"><span class="section-title">Registros de administración</span><span class="section-count" id="ad-count">—</span></div>
+    <div class="log-wrap">
+      <table class="log-table">
+        <thead><tr><th>Fecha/Hora</th><th>Puesto</th><th>Nombre</th><th>Notas</th></tr></thead>
+        <tbody id="admin-body"><tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
 
 <script>
@@ -461,8 +481,8 @@
 // Migrado de Airtable a Google Sheets / Apps Script: GOOGLE_SCRIPT_URL es ahora
 // la única fuente de datos (sirve tanto al dashboard/cards/log como al historial).
 // Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzOdhJSqK2NDf1xrYp6i13lDLnXgVhZqZJVEPkEbakAwZ3Jjvpnlfu9pgDixLsPVPT2SQ/exec";
-const PASSWORD_CORRECTA = "Uplace2026";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5T5PCv6Zh1l53Qt3yRDe2tRzSG3A3xWd2mehG-lZ9950DZC3Y81jNjljo7C71BcLCIw/exec";
+const PASSWORD_CORRECTA = "875223";
 
 // AIRTABLE_TOKEN / BASE_ID / TABLE_ID ya no se usan tras la migración.
 // Se dejan comentados por si se necesita hacer rollback.
@@ -650,28 +670,38 @@ function sortRows(rows,col,dir){
 // ── GLOBAL DATA ───────────────────────────────────────────────────────────────
 let allRecords=[];
 
-async function fetchRecords(){
-  // Migrado de Airtable a Google Sheets / Apps Script.
-  // Reusa el mismo GOOGLE_SCRIPT_URL que ya consume el historial (doGet sin parámetros).
+async function fetchAllRows_(){
   if(!GOOGLE_SCRIPT_URL)throw new Error('GOOGLE_SCRIPT_URL no configurado.');
   const res=await fetch(GOOGLE_SCRIPT_URL);
   if(!res.ok)throw new Error(`Error ${res.status}: ${res.statusText}`);
   const json=await res.json();
   const rows=Array.isArray(json)?json:json.data||[];
-  // Se mapea a la misma forma {fields:{...}} que Airtable, para no tocar
-  // el resto del dashboard (renderDashboard, renderCards, renderLog, filtros, sort).
-  return rows
-    .sort((a,b)=>new Date(b.TimestampISO||0)-new Date(a.TimestampISO||0))
-    .slice(0,100)
-    .map(row=>({
-      fields:{
-        Checkpoint: row['Checkpoint']||'',
-        Guardia: row['Guardia']||'',
-        Timestamp: row['TimestampISO']||row['Timestamp']||'',
-        Turno: row['Turno']||'',
-        Notas: row['Notas']||''
-      }
-    }));
+  return rows.sort((a,b)=>new Date(b.TimestampISO||0)-new Date(a.TimestampISO||0));
+}
+
+function mapRowToFields_(row){
+  return{fields:{
+    Checkpoint: row['Checkpoint']||'',
+    Guardia: row['Guardia']||'',
+    Timestamp: row['TimestampISO']||row['Timestamp']||'',
+    Turno: row['Turno']||'',
+    Notas: row['Notas']||'',
+    Rol: row['Rol']||'Guardia' // filas viejas sin Rol = Guardia, para no romper nada existente
+  }};
+}
+
+// Se mapea a la misma forma {fields:{...}} que Airtable, para no tocar
+// el resto del dashboard (renderDashboard, renderCards, renderLog, filtros, sort).
+// Solo incluye registros de Guardia — administración vive aparte, ver fetchAdminRecords().
+async function fetchRecords(){
+  const sorted=await fetchAllRows_();
+  return sorted.filter(r=>(r['Rol']||'Guardia')==='Guardia').slice(0,100).map(mapRowToFields_);
+}
+
+// Registros de administración, completamente separados de la vista de guardias.
+async function fetchAdminRecords(){
+  const sorted=await fetchAllRows_();
+  return sorted.filter(r=>r['Rol']==='Administracion').slice(0,100).map(mapRowToFields_);
 }
 
 function populateGuardias(records){
@@ -831,6 +861,8 @@ function renderLog(){
 }
 
 // ── LOAD ──────────────────────────────────────────────────────────────────────
+let adminRecords=[];
+
 async function loadData(){
   try{
     allRecords=await fetchRecords();
@@ -840,6 +872,13 @@ async function loadData(){
     const e=`<div class="error-box">Error cargando datos: ${err.message}</div>`;
     const pl=document.getElementById('posts-list');if(pl)pl.innerHTML=e;
     const cg=document.getElementById('cards-grid');if(cg)cg.innerHTML=e;
+  }
+  try{
+    adminRecords=await fetchAdminRecords();
+    renderAdmin();
+  }catch(err){
+    const ab=document.getElementById('admin-body');
+    if(ab)ab.innerHTML=`<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--danger)">Error cargando registros de administración: ${err.message}</td></tr>`;
   }
 }
 
@@ -1156,6 +1195,34 @@ function exportarHistorialCSV(){
   a.href=url;a.download=`historial_rondines_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// ADMINISTRACIÓN — panel completamente separado de las vistas de guardias
+// ══════════════════════════════════════════════════════════════════════════
+function renderAdmin(){
+  setText('ad-total',adminRecords.length);
+  const personas=new Set(adminRecords.map(r=>r.fields.Guardia).filter(Boolean));
+  setText('ad-personas',personas.size);
+
+  const latest=adminRecords[0];
+  setText('ad-last',latest?fmtTime(latest.fields.Timestamp):'—');
+  setText('ad-last-post',(latest?.fields?.Checkpoint||'—'));
+
+  setText('ad-count',`${adminRecords.length} registros`);
+  const body=document.getElementById('admin-body');
+  if(!body)return;
+  body.innerHTML='';
+  if(adminRecords.length===0){
+    body.innerHTML='<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--muted)">Sin registros de administración todavía</td></tr>';
+    return;
+  }
+  adminRecords.forEach(r=>{
+    const f=r.fields;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--muted)">${fmtDT(f.Timestamp)}</td><td>${f.Checkpoint||'—'}</td><td>${f.Guardia||'—'}</td><td style="color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
+    body.appendChild(tr);
+  });
 }
 
 function exportarHistorialPDF(){
