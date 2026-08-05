@@ -608,7 +608,7 @@
 // Migrado de Airtable a Google Sheets / Apps Script: GOOGLE_SCRIPT_URL es ahora
 // la única fuente de datos (sirve tanto al dashboard/cards/log como al historial).
 // Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw96-scTLcTYPs9I8EsGjt3cDb3mz3PWQdMJFG_CoWCsj9EfCfU4_6Fm9OFmHIDZxdNuQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzcwGDXjiZiuvFPx04qvOBDLhoNCeQM5xqpC6FNkFBP0Z3zgxDjnEAw8kv_J516f6UYtg/exec";
 const PASSWORD_CORRECTA = "875223";
 
 // AIRTABLE_TOKEN / BASE_ID / TABLE_ID ya no se usan tras la migración.
@@ -787,7 +787,8 @@ function mapRowToFields_(row){
     Timestamp: row['TimestampISO']||row['Timestamp']||'',
     Turno: row['Turno']||'',
     Notas: row['Notas']||'',
-    Rol: row['Rol']||'Guardia' // filas viejas sin Rol = Guardia, para no romper nada existente
+    Rol: row['Rol']||'Guardia', // filas viejas sin Rol = Guardia, para no romper nada existente
+    Alerta: row['Alerta']||''
   }};
 }
 
@@ -953,7 +954,9 @@ function renderLog(){
   sorted.forEach((row,i)=>{
     const f=row._r.fields;const ts=f.Timestamp||f['Created Time'];const turno=(f.Turno||'').toLowerCase();
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="color:var(--muted)">${st.col==='num'&&st.dir==='asc'?i+1:sorted.length-i}</td><td style="color:var(--muted)">${fmtDT(ts)}</td><td>${f.Checkpoint||'—'}</td><td>${f.Guardia||'—'}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${f.Turno||'—'}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
+    if(f.Alerta)tr.style.background='rgba(240,79,79,.08)';
+    const badgeAlerta=f.Alerta?` <span title="Registrado muy rápido después del anterior — posible patrón irregular" style="color:var(--danger);font-weight:700;">⚠️</span>`:'';
+    tr.innerHTML=`<td style="color:var(--muted)">${st.col==='num'&&st.dir==='asc'?i+1:sorted.length-i}</td><td style="color:var(--muted)">${fmtDT(ts)}</td><td>${f.Checkpoint||'—'}${badgeAlerta}</td><td>${f.Guardia||'—'}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${f.Turno||'—'}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1020,6 +1023,7 @@ async function fetchHistorial(){
     .map(row=>({
       num:row['#']||'',checkpoint:row['Checkpoint']||'—',timestamp:row['Timestamp']||'',
       turno:row['Turno']||'—',guardia:row['Guardia']||'—',notas:row['Notas']||'—',
+      alerta:row['Alerta']||'',
       _date:parseTimestampES(row['Timestamp']),
     }));
 }
@@ -1172,8 +1176,10 @@ function renderHistorial(){
     sorted.forEach((row,i)=>{
       const r=row._r;const turno=r.turno.toLowerCase();
       const tr=document.createElement('tr');
+      if(r.alerta)tr.style.background='rgba(240,79,79,.08)';
+      const badgeAlerta=r.alerta?` <span title="Registrado muy rápido después del anterior — posible patrón irregular" style="color:var(--danger);font-weight:700;">⚠️</span>`:'';
       const num=st.col==='num'&&st.dir==='asc'?i+1:sorted.length-i;
-      tr.innerHTML=`<td style="color:var(--muted)">${num}</td><td style="color:var(--muted)">${r._date?fmtDT(r._date.toISOString()):r.timestamp}</td><td>${r.checkpoint}</td><td>${r.guardia}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${r.turno}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.notas}</td>`;
+      tr.innerHTML=`<td style="color:var(--muted)">${num}</td><td style="color:var(--muted)">${r._date?fmtDT(r._date.toISOString()):r.timestamp}</td><td>${r.checkpoint}${badgeAlerta}</td><td>${r.guardia}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${r.turno}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.notas}</td>`;
       tbody.appendChild(tr);
     });
   }
