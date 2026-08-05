@@ -85,6 +85,9 @@
 
   /* TWO COL */
   .two-col{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;}
+  .two-col-full{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;}
+  .stats-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .stats-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
   .section{background:var(--surface);border:1px solid var(--border);overflow:hidden;}
   .section-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
   .section-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
@@ -132,6 +135,7 @@
   .filter-sep{width:1px;height:24px;background:var(--border);margin:0 4px;flex-shrink:0;}
   .filter-date{font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 8px;cursor:pointer;outline:none;}
   .filter-date:focus{border-color:var(--accent);}
+  .filter-date::-webkit-calendar-picker-indicator{filter:invert(1);cursor:pointer;}
   .filter-select{font-family:var(--mono);font-size:10px;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 8px;cursor:pointer;outline:none;min-width:100px;}
   .filter-select:focus{border-color:var(--accent);}
 
@@ -166,13 +170,16 @@
   footer{text-align:center;padding:20px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:1px;border-top:1px solid var(--border);}
 
   /* RESPONSIVE */
-  @media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr);}.two-col{grid-template-columns:1fr;}}
+  @media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr);}.two-col{grid-template-columns:1fr;}.two-col-full{grid-template-columns:1fr;}.stats-4{grid-template-columns:repeat(2,1fr);}.stats-3{grid-template-columns:repeat(2,1fr);}}
   @media(max-width:600px){
     header{height:auto;padding:10px 16px;}.logo-sub{display:none;}.live-label{display:none;}#clock{display:none;}
     .panel{padding:12px;}.stats{grid-template-columns:repeat(2,1fr);gap:8px;}.stat-value{font-size:24px;}.stat{padding:12px 14px;}
     .cards-stats{grid-template-columns:repeat(3,1fr);gap:8px;}.cstat{padding:12px 8px;}.cstat-value{font-size:20px;}
     .cards-grid{grid-template-columns:1fr 1fr;gap:8px;}.filter-sep{display:none;}.posts-list{max-height:300px;}
     .two-col .section:last-child{display:none;}
+    .stats-4,.stats-3{grid-template-columns:repeat(2,1fr);gap:8px;}
+    .stat-mini{padding:10px;}.stat-mini-value{font-size:16px;}
+    .bar-label{width:90px;font-size:11px;}
   }
   @media(max-width:400px){.cards-grid{grid-template-columns:1fr;}}
 
@@ -491,14 +498,51 @@
 
 <!-- ═══ PANEL: ESTADÍSTICAS — ranking de guardias, horarios, ritmo de rondines ═══ -->
 <div class="panel" id="panel-estadisticas">
-  <div class="stats" style="margin-bottom:20px;grid-template-columns:repeat(4,1fr)">
+  <div class="filters-bar">
+    <span class="filter-label">Mes:</span>
+    <select class="filter-select" id="est-month-select" onchange="onEstFilterChange()" style="min-width:140px">
+      <option value="">— cargando —</option>
+    </select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Fecha:</span>
+    <div class="filter-group">
+      <button class="filter-btn"        id="est-btn-hoy"    onclick="setEstDateFilter('hoy',this)">Hoy</button>
+      <button class="filter-btn"        id="est-btn-ayer"   onclick="setEstDateFilter('ayer',this)">Ayer</button>
+      <button class="filter-btn active" id="est-btn-todos"  onclick="setEstDateFilter('todos',this)">Todos</button>
+      <button class="filter-btn"        id="est-btn-custom" onclick="setEstDateFilter('custom',this)">Fecha</button>
+      <input type="date" class="filter-date" id="est-date-from" style="display:none" onchange="onEstFilterChange()" title="Desde"/>
+      <span id="est-date-sep" style="display:none;font-family:var(--mono);font-size:10px;color:var(--muted)">–</span>
+      <input type="date" class="filter-date" id="est-date-to"   style="display:none" onchange="onEstFilterChange()" title="Hasta"/>
+    </div>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Turno:</span>
+    <div class="filter-group">
+      <button class="filter-btn active" id="est-btn-t-all" onclick="setEstTurnoFilter('',this)">Todos</button>
+      <button class="filter-btn"        id="est-btn-t-d"   onclick="setEstTurnoFilter('Diurno',this)">Diurno</button>
+      <button class="filter-btn"        id="est-btn-t-n"   onclick="setEstTurnoFilter('Nocturno',this)">Nocturno</button>
+    </div>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Guardia:</span>
+    <select class="filter-select" id="est-guardia-select" onchange="onEstFilterChange()"><option value="">Todos</option></select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Puesto:</span>
+    <select class="filter-select" id="est-puesto-select" onchange="onEstFilterChange()" style="min-width:200px"><option value="">Todos</option></select>
+    <span style="font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-left:8px;" id="est-rec-count"></span>
+  </div>
+
+  <div class="stats stats-4" style="margin-bottom:20px">
     <div class="stat-mini"><div class="stat-mini-label">Guardia más activo</div><div class="stat-mini-value" id="e-top-guardia">—</div><div class="stat-mini-sub" id="e-top-guardia-sub">—</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Guardia menos activo</div><div class="stat-mini-value" id="e-bottom-guardia">—</div><div class="stat-mini-sub" id="e-bottom-guardia-sub">—</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Tiempo prom. entre escaneos</div><div class="stat-mini-value" id="e-tiempo-prom">—</div><div class="stat-mini-sub">de un puesto al siguiente</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Puesto más olvidado</div><div class="stat-mini-value" id="e-puesto-olvidado" style="font-size:14px">—</div><div class="stat-mini-sub" id="e-puesto-olvidado-sub">—</div></div>
   </div>
+  <div class="stats stats-3" style="margin-bottom:20px">
+    <div class="stat-mini"><div class="stat-mini-label">Puestos sin visitas en el período</div><div class="stat-mini-value" id="e-sin-visitas">—</div><div class="stat-mini-sub" id="e-sin-visitas-sub">de 19 puestos</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Rondines con hallazgos</div><div class="stat-mini-value" id="e-hallazgos">—</div><div class="stat-mini-sub">notas distintas de "sin novedad"</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Día con más actividad</div><div class="stat-mini-value" id="e-dia-top">—</div><div class="stat-mini-sub" id="e-dia-top-sub">—</div></div>
+  </div>
 
-  <div class="two-col">
+  <div class="two-col-full">
     <div class="section">
       <div class="section-header"><span class="section-title">Ranking de guardias (total de escaneos)</span><span class="section-count" id="e-guardias-total">—</span></div>
       <div id="e-ranking-guardias" style="padding:8px 4px;max-height:420px;overflow-y:auto"></div>
@@ -511,6 +555,8 @@
         <div class="bar-row"><span class="bar-label">☀️ Diurno</span><div class="bar-track"><div class="bar-fill" id="e-bar-diurno" style="width:0%"></div></div><span class="bar-value" id="e-val-diurno">—</span></div>
         <div class="bar-row"><span class="bar-label">🌙 Nocturno</span><div class="bar-track"><div class="bar-fill" id="e-bar-nocturno" style="width:0%;background:#7c8cf8"></div></div><span class="bar-value" id="e-val-nocturno">—</span></div>
       </div>
+      <div class="section-header" style="border-top:1px solid var(--border);margin-top:8px"><span class="section-title">Actividad por día de la semana</span></div>
+      <div class="hour-histogram" id="e-day-histogram" style="padding:20px 8px 8px;height:90px"></div>
     </div>
   </div>
 
@@ -527,8 +573,31 @@
   </div>
 
   <div class="section" style="margin-top:16px">
-    <div class="section-header"><span class="section-title">Cobertura histórica por puesto (todo el historial)</span><span class="section-count" id="e-puestos-count">—</span></div>
+    <div class="section-header"><span class="section-title">Cobertura por puesto (según filtro activo)</span><span class="section-count" id="e-puestos-count">—</span></div>
     <div id="e-ranking-puestos" style="padding:8px 4px;max-height:420px;overflow-y:auto"></div>
+  </div>
+
+  <div class="section" style="margin-top:16px">
+    <div class="section-header"><span class="section-title">Rachas sin visita (días consecutivos)</span><span class="section-count" id="e-rachas-count">—</span></div>
+    <div class="log-wrap">
+      <table class="log-table">
+        <thead><tr><th>Puesto</th><th>Racha máxima</th><th>Racha actual</th></tr></thead>
+        <tbody id="e-rachas-body"><tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:16px">
+    <div class="section-header"><span class="section-title">Comparativo mes contra mes</span><span class="section-count" id="e-meses-count">—</span></div>
+    <div style="font-size:10px;color:var(--muted);padding:4px 4px 10px;">Ignora el filtro de fecha/mes de arriba (para poder comparar entre meses); sí respeta turno/guardia/puesto si los usas.</div>
+    <div id="e-comparativo-mensual" style="padding:8px 4px"></div>
+  </div>
+
+  <div class="section" style="margin-top:16px">
+    <div class="section-header"><span class="section-title">Mapa de calor: puesto × hora</span><span class="section-count" id="e-heatmap-count">—</span></div>
+    <div style="overflow-x:auto;padding:8px 4px">
+      <table id="e-heatmap-table" style="border-collapse:collapse;font-size:9px;white-space:nowrap;"></table>
+    </div>
   </div>
 </div>
 
@@ -963,6 +1032,7 @@ async function loadHistorial(){
   try{
     histData=await fetchHistorial();histLoaded=true;
     buildHistMonthSelector();buildHistGuardiaSelector();buildHistPuestoSelector();
+    buildEstMonthSelector();buildEstGuardiaSelector();buildEstPuestoSelector();
     renderHistorial();
     renderAnalisisRondas();
     renderEstadisticas();
@@ -1290,6 +1360,92 @@ function exportarHistorialPDF(){
 // Usa histData completo (todo el historial archivado + mes actual), ya
 // filtrado a solo Guardia (ver fetchHistorial).
 // ══════════════════════════════════════════════════════════════════════════
+// ── Filtros de Estadísticas (mismo patrón que Historial, + Hoy/Ayer) ──────
+let estFilterMode='todos',estFilterFrom='',estFilterTo='';
+let estFilterTurno='',estFilterGuardia='',estFilterPuesto='';
+
+// Igual que isOnDate() pero opera sobre un objeto Date ya parseado (_date),
+// que es lo que trae histData en vez de un string de timestamp crudo.
+function matchesQuickDate(d,mode,fromVal,toVal){
+  if(mode==='todos')return true;
+  if(!d)return false;
+  const now=new Date();
+  if(mode==='hoy')return d.toDateString()===now.toDateString();
+  if(mode==='ayer'){const a=new Date(now);a.setDate(a.getDate()-1);return d.toDateString()===a.toDateString();}
+  if(mode==='custom'){
+    if(fromVal){const[fy,fm,fd]=fromVal.split('-').map(Number);const from=new Date(fy,fm-1,fd);if(d<from)return false;}
+    if(toVal){const[ty,tm,td]=toVal.split('-').map(Number);const to=new Date(ty,tm-1,td,23,59,59);if(d>to)return false;}
+    return true;
+  }
+  return true;
+}
+
+function buildEstMonthSelector(){
+  const sel=document.getElementById('est-month-select');if(!sel)return;
+  const keys=[...new Set(histData.map(r=>monthKey(r._date)).filter(Boolean))];
+  keys.sort((a,b)=>{const p=s=>{const[m,y]=s.split(' ');return new Date(parseInt(y),MESES_NOMBRES.indexOf(m));};return p(b)-p(a);});
+  sel.innerHTML='';if(keys.length===0){sel.innerHTML='<option value="">Sin datos</option>';return;}
+  sel.innerHTML='<option value="">Todos los meses</option>';
+  keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);});
+}
+
+function buildEstGuardiaSelector(){
+  const sel=document.getElementById('est-guardia-select');if(!sel)return;
+  const gs=[...new Set(histData.map(r=>r.guardia).filter(g=>g&&g!=='—'))].sort();
+  sel.innerHTML='<option value="">Todos</option>';
+  gs.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;sel.appendChild(o);});
+}
+
+function buildEstPuestoSelector(){
+  const sel=document.getElementById('est-puesto-select');if(!sel)return;
+  const idsEnDatos=new Set(histData.map(r=>r.checkpoint.split(' ')[0]).filter(Boolean));
+  sel.innerHTML='<option value="">Todos</option>';
+  POSTS.forEach(p=>{
+    if(idsEnDatos.has(p.id)){
+      const o=document.createElement('option');o.value=p.id;o.textContent=`${p.id} ${p.name} (${p.level})`;sel.appendChild(o);
+    }
+  });
+  idsEnDatos.forEach(id=>{
+    if(!POSTS.find(p=>p.id===id)){const o=document.createElement('option');o.value=id;o.textContent=id;sel.appendChild(o);}
+  });
+}
+
+function setEstDateFilter(val,el){
+  estFilterMode=val;
+  document.querySelectorAll('#est-btn-hoy,#est-btn-ayer,#est-btn-todos,#est-btn-custom').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const show=val==='custom';
+  ['est-date-from','est-date-to','est-date-sep'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=show?'inline-block':'none';});
+  renderEstadisticas();
+}
+
+function setEstTurnoFilter(val,el){
+  estFilterTurno=val;
+  document.querySelectorAll('#est-btn-t-all,#est-btn-t-d,#est-btn-t-n').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');renderEstadisticas();
+}
+
+function onEstFilterChange(){
+  estFilterGuardia=document.getElementById('est-guardia-select').value;
+  estFilterPuesto=document.getElementById('est-puesto-select').value;
+  estFilterFrom=document.getElementById('est-date-from').value;
+  estFilterTo=document.getElementById('est-date-to').value;
+  renderEstadisticas();
+}
+
+function filtrarParaEstadisticas(){
+  const selMes=document.getElementById('est-month-select');
+  const selectedMonth=selMes?selMes.value:'';
+  return histData.filter(r=>{
+    if(selectedMonth&&monthKey(r._date)!==selectedMonth)return false;
+    if(!matchesQuickDate(r._date,estFilterMode,estFilterFrom,estFilterTo))return false;
+    if(estFilterTurno&&r.turno!==estFilterTurno)return false;
+    if(estFilterGuardia&&r.guardia!==estFilterGuardia)return false;
+    if(estFilterPuesto&&r.checkpoint.split(' ')[0]!==estFilterPuesto)return false;
+    return true;
+  });
+}
+
 function fmtMin(min){
   if(min===null||isNaN(min))return '—';
   if(min<60)return `${Math.round(min)} min`;
@@ -1297,9 +1453,9 @@ function fmtMin(min){
   return `${h}h ${m}min`;
 }
 
-function calcularEstadisticasGuardias(){
+function calcularEstadisticasGuardias(records){
   const porGuardia={};
-  histData.forEach(r=>{
+  records.forEach(r=>{
     if(!r.guardia||r.guardia==='—')return;
     if(!porGuardia[r.guardia])porGuardia[r.guardia]={total:0,horas:new Array(24).fill(0),diurno:0,nocturno:0,puestos:new Set()};
     const g=porGuardia[r.guardia];
@@ -1314,9 +1470,9 @@ function calcularEstadisticasGuardias(){
 // Tiempo entre escaneos consecutivos del mismo guardia, agrupado por turno
 // de 24h (para no mezclar el último escaneo de un turno con el primero del
 // siguiente). Ignora huecos mayores a 4h (cambios de turno, descansos largos).
-function calcularTiempoEntreEscaneos(){
+function calcularTiempoEntreEscaneos(records){
   const porGuardiaTurno={};
-  histData.forEach(r=>{
+  records.forEach(r=>{
     if(!r.guardia||!r._date)return;
     const key=`${r.guardia}|${turnoKeyFromDate_(r._date)}`;
     if(!porGuardiaTurno[key])porGuardiaTurno[key]=[];
@@ -1337,16 +1493,106 @@ function calcularTiempoEntreEscaneos(){
   return gapsPorGuardia;
 }
 
+// Igual que turnoKeyFromDate_ pero regresa el objeto Date (no el string), para
+// poder hacer aritmética de días consecutivos.
+function turnoDayDate_(d){
+  const dd=new Date(d);
+  if(dd.getHours()<7)dd.setDate(dd.getDate()-1);
+  dd.setHours(0,0,0,0);
+  return dd;
+}
+
+// Racha de días consecutivos SIN visita, por puesto. "Racha máxima" = la peor
+// racha que ha tenido ese puesto en todo el período filtrado. "Racha actual"
+// = cuántos días lleva sin visita justo al final del período (si sigue activa).
+function calcularRachasSinVisita(records){
+  const diasSet=new Set();
+  records.forEach(r=>{if(r._date)diasSet.add(turnoDayDate_(r._date).getTime());});
+  const dias=[...diasSet].sort((a,b)=>a-b);
+  if(dias.length===0)return[];
+
+  const escaneosPorPuestoDia={};
+  ALL_POST_IDS.forEach(id=>escaneosPorPuestoDia[id]=new Set());
+  records.forEach(r=>{
+    const cp=r.checkpoint.split(' ')[0];
+    if(!(cp in escaneosPorPuestoDia)||!r._date)return;
+    escaneosPorPuestoDia[cp].add(turnoDayDate_(r._date).getTime());
+  });
+
+  return ALL_POST_IDS.map(id=>{
+    let rachaMax=0,rachaActual=0;
+    dias.forEach(t=>{
+      if(escaneosPorPuestoDia[id].has(t))rachaActual=0;
+      else{rachaActual++;if(rachaActual>rachaMax)rachaMax=rachaActual;}
+    });
+    let rachaFinal=0;
+    for(let i=dias.length-1;i>=0;i--){
+      if(escaneosPorPuestoDia[id].has(dias[i]))break;
+      rachaFinal++;
+    }
+    return{id,rachaMax,rachaFinal};
+  }).filter(p=>p.rachaMax>0).sort((a,b)=>b.rachaMax-a.rachaMax);
+}
+
+// Comparativo mes contra mes. Ignora el filtro de mes/fecha a propósito (para
+// poder comparar entre meses), pero sí respeta turno/guardia/puesto.
+function calcularComparativoMensual(){
+  const records=histData.filter(r=>{
+    if(estFilterTurno&&r.turno!==estFilterTurno)return false;
+    if(estFilterGuardia&&r.guardia!==estFilterGuardia)return false;
+    if(estFilterPuesto&&r.checkpoint.split(' ')[0]!==estFilterPuesto)return false;
+    return true;
+  });
+  const porMes={};
+  records.forEach(r=>{
+    if(!r._date)return;
+    const key=monthKey(r._date);if(!key)return;
+    if(!porMes[key])porMes[key]={total:0};
+    porMes[key].total++;
+  });
+  const entries=Object.entries(porMes).sort((a,b)=>{
+    const p=s=>{const[m,y]=s.split(' ');return new Date(parseInt(y),MESES_NOMBRES.indexOf(m));};
+    return p(a[0])-p(b[0]);
+  });
+  return entries.map(([mes,d],i,arr)=>{
+    const anterior=i>0?arr[i-1][1].total:null;
+    const cambioPct=anterior?Math.round(((d.total-anterior)/anterior)*100):null;
+    return{mes,total:d.total,cambioPct};
+  });
+}
+
+function calcularHeatmapPuestoHora(records){
+  const matriz={};
+  ALL_POST_IDS.forEach(id=>matriz[id]=new Array(24).fill(0));
+  records.forEach(r=>{
+    const cp=r.checkpoint.split(' ')[0];
+    if(!(cp in matriz)||!r._date)return;
+    matriz[cp][r._date.getHours()]++;
+  });
+  return matriz;
+}
+
 function renderEstadisticas(){
-  const porGuardia=calcularEstadisticasGuardias();
-  const gaps=calcularTiempoEntreEscaneos();
+  const records=filtrarParaEstadisticas();
+  setText('est-rec-count',`${records.length} registros`);
+
+  const porGuardia=calcularEstadisticasGuardias(records);
+  const gaps=calcularTiempoEntreEscaneos(records);
   const guardiasArr=Object.entries(porGuardia).sort((a,b)=>b[1].total-a[1].total);
 
   if(guardiasArr.length===0){
-    ['e-top-guardia','e-bottom-guardia'].forEach(id=>setText(id,'—'));
+    ['e-top-guardia','e-bottom-guardia','e-sin-visitas','e-hallazgos','e-dia-top'].forEach(id=>setText(id,'—'));
     setText('e-tiempo-prom','—');setText('e-puesto-olvidado','—');
-    document.getElementById('e-ranking-guardias').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin datos suficientes</div>';
-    document.getElementById('e-ritmo-body').innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin datos suficientes</td></tr>';
+    document.getElementById('e-ranking-guardias').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</div>';
+    document.getElementById('e-ritmo-body').innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</td></tr>';
+    document.getElementById('e-ranking-puestos').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</div>';
+    document.getElementById('e-hour-histogram').innerHTML='';
+    document.getElementById('e-day-histogram').innerHTML='';
+    setText('e-val-diurno','—');setText('e-val-nocturno','—');
+    document.getElementById('e-bar-diurno').style.width='0%';document.getElementById('e-bar-nocturno').style.width='0%';
+    document.getElementById('e-rachas-body').innerHTML='<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</td></tr>';
+    document.getElementById('e-comparativo-mensual').innerHTML='';
+    document.getElementById('e-heatmap-table').innerHTML='';
     return;
   }
 
@@ -1407,10 +1653,10 @@ function renderEstadisticas(){
     ritmoBody.appendChild(tr);
   });
 
-  // Cobertura histórica por puesto (todo el historial)
+  // Cobertura por puesto (según el filtro activo)
   const conteoPuestos={};
   ALL_POST_IDS.forEach(id=>conteoPuestos[id]=0);
-  histData.forEach(r=>{
+  records.forEach(r=>{
     const cp=r.checkpoint.split(' ')[0];
     if(cp in conteoPuestos)conteoPuestos[cp]++;
   });
@@ -1418,7 +1664,7 @@ function renderEstadisticas(){
     .sort((a,b)=>a.count-b.count);
   const peor=puestosArr[0];
   setText('e-puesto-olvidado',peor?`${peor.id} ${peor.nombre}`:'—');
-  setText('e-puesto-olvidado-sub',peor?`${peor.count} escaneos en todo el historial`:'—');
+  setText('e-puesto-olvidado-sub',peor?`${peor.count} escaneos en el período filtrado`:'—');
 
   setText('e-puestos-count',`${puestosArr.length} puestos`);
   const maxPuesto=Math.max(...puestosArr.map(p=>p.count),1);
@@ -1431,6 +1677,96 @@ function renderEstadisticas(){
     row.innerHTML=`<span class="bar-label" title="${p.id} ${p.nombre}">${p.id} ${p.nombre}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;${bajo?'background:var(--danger)':''}"></div></div><span class="bar-value">${p.count}</span>`;
     puestosEl.appendChild(row);
   });
+
+  // Puestos sin ninguna visita en el período filtrado
+  const sinVisitas=puestosArr.filter(p=>p.count===0);
+  setText('e-sin-visitas',sinVisitas.length);
+  setText('e-sin-visitas-sub',sinVisitas.length?sinVisitas.map(p=>p.id).join(', '):`de ${ALL_POST_IDS.length} puestos`);
+
+  // % de rondines con hallazgos reales (nota distinta de genéricos tipo "sin novedad")
+  const genericas=['sin novedad','sin novedades','—','sin novedades que reportar','sin novedades todo parece funcionar con normalidad.'];
+  const conHallazgo=records.filter(r=>{
+    const n=(r.notas||'').trim().toLowerCase();
+    if(!n||n==='—')return false;
+    return !genericas.some(g=>n.includes(g)) || n.length>60; // nota larga = probablemente sí describe algo
+  });
+  const pctHallazgo=records.length?Math.round((conHallazgo.length/records.length)*100):0;
+  setText('e-hallazgos',`${pctHallazgo}%`);
+
+  // Día de la semana con más actividad
+  const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const porDia=new Array(7).fill(0);
+  records.forEach(r=>{if(r._date)porDia[r._date.getDay()]++;});
+  const maxDiaIdx=porDia.indexOf(Math.max(...porDia));
+  setText('e-dia-top',porDia.some(c=>c>0)?DIAS[maxDiaIdx]:'—');
+  setText('e-dia-top-sub',porDia.some(c=>c>0)?`${porDia[maxDiaIdx]} escaneos`:'—');
+
+  const maxDia=Math.max(...porDia,1);
+  const dayHistEl=document.getElementById('e-day-histogram');
+  dayHistEl.innerHTML='';
+  DIAS.forEach((nombre,i)=>{
+    const alturaPct=Math.round((porDia[i]/maxDia)*100);
+    const wrap=document.createElement('div');wrap.className='hour-bar-wrap';
+    wrap.title=`${nombre} — ${porDia[i]} escaneos`;
+    wrap.innerHTML=`<div class="hour-bar" style="height:${Math.max(alturaPct,2)}%"></div><div class="hour-label">${nombre}</div>`;
+    dayHistEl.appendChild(wrap);
+  });
+
+  // Rachas sin visita por puesto
+  const rachas=calcularRachasSinVisita(records);
+  setText('e-rachas-count',`${rachas.length} puestos con huecos`);
+  const rachasBody=document.getElementById('e-rachas-body');
+  rachasBody.innerHTML='';
+  if(rachas.length===0){
+    rachasBody.innerHTML='<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--muted)">Sin huecos detectados en este filtro</td></tr>';
+  } else {
+    rachas.slice(0,15).forEach(r=>{
+      const p=POSTS.find(pp=>pp.id===r.id);
+      const nombre=p?`${r.id} ${p.name}`:r.id;
+      const tr=document.createElement('tr');
+      const colorActual=r.rachaFinal>0?'color:var(--danger)':'color:var(--muted)';
+      tr.innerHTML=`<td>${nombre}</td><td>${r.rachaMax} día(s)</td><td style="${colorActual}">${r.rachaFinal>0?r.rachaFinal+' día(s) — sigue activa':'—'}</td>`;
+      rachasBody.appendChild(tr);
+    });
+  }
+
+  // Comparativo mes contra mes (ignora filtro de mes/fecha a propósito)
+  const comparativo=calcularComparativoMensual();
+  setText('e-meses-count',`${comparativo.length} meses`);
+  const compEl=document.getElementById('e-comparativo-mensual');
+  compEl.innerHTML='';
+  if(comparativo.length===0){
+    compEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin datos suficientes</div>';
+  } else {
+    const maxMes=Math.max(...comparativo.map(m=>m.total),1);
+    comparativo.forEach(m=>{
+      const pct=Math.round((m.total/maxMes)*100);
+      const cambioLabel=m.cambioPct===null?'':(m.cambioPct>=0?` <span style="color:var(--ok)">▲${m.cambioPct}%</span>`:` <span style="color:var(--danger)">▼${Math.abs(m.cambioPct)}%</span>`);
+      const row=document.createElement('div');row.className='bar-row';
+      row.innerHTML=`<span class="bar-label">${m.mes}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-value">${m.total}${cambioLabel}</span>`;
+      compEl.appendChild(row);
+    });
+  }
+
+  // Mapa de calor puesto × hora
+  const heatmap=calcularHeatmapPuestoHora(records);
+  const maxCelda=Math.max(...Object.values(heatmap).flat(),1);
+  setText('e-heatmap-count',`${ALL_POST_IDS.length} puestos × 24h`);
+  const heatTable=document.getElementById('e-heatmap-table');
+  let heatHTML='<thead><tr><th style="position:sticky;left:0;background:var(--surface);padding:4px 8px;text-align:left;">Puesto</th>';
+  for(let h=0;h<24;h++)heatHTML+=`<th style="padding:2px 4px;color:var(--muted);font-weight:400;">${h}</th>`;
+  heatHTML+='</tr></thead><tbody>';
+  ALL_POST_IDS.forEach(id=>{
+    const p=POSTS.find(pp=>pp.id===id);
+    heatHTML+=`<tr><td style="position:sticky;left:0;background:var(--bg);padding:4px 8px;color:var(--text);">${id}</td>`;
+    heatmap[id].forEach(c=>{
+      const alpha=c===0?0:Math.max(0.15,c/maxCelda);
+      heatHTML+=`<td title="${p?p.name:id} — ${c} escaneos" style="width:20px;height:20px;background:rgba(45,212,160,${alpha});border:1px solid var(--bg);"></td>`;
+    });
+    heatHTML+='</tr>';
+  });
+  heatHTML+='</tbody>';
+  heatTable.innerHTML=heatHTML;
 }
 </script>
 </body>
