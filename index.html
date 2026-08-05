@@ -175,6 +175,20 @@
     .two-col .section:last-child{display:none;}
   }
   @media(max-width:400px){.cards-grid{grid-template-columns:1fr;}}
+
+  .bar-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
+  .bar-label{width:150px;flex-shrink:0;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-track{flex:1;background:var(--bg);border-radius:4px;height:18px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--ok);border-radius:4px;transition:width .3s;}
+  .bar-value{width:50px;flex-shrink:0;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .hour-histogram{display:flex;align-items:flex-end;gap:2px;height:120px;padding:10px 0;}
+  .hour-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;}
+  .hour-bar{width:100%;background:var(--ok);border-radius:2px 2px 0 0;min-height:2px;}
+  .hour-label{font-size:8px;color:var(--muted);margin-top:4px;}
+  .stat-mini{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;}
+  .stat-mini-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+  .stat-mini-value{font-size:20px;font-weight:700;color:var(--text);}
+  .stat-mini-sub{font-size:11px;color:var(--muted);margin-top:2px;}
 </style>
 </head>
 <body>
@@ -213,6 +227,7 @@
   <button class="tab" onclick="showTab('historial',this);loadHistorial()">Historial Completo</button>
   <button class="tab" onclick="showTab('analisis',this);loadHistorial()">Análisis de Rondas</button>
   <button class="tab" onclick="showTab('admin',this)">Administración</button>
+  <button class="tab" onclick="showTab('estadisticas',this);loadHistorial()">Estadísticas</button>
 </div>
 
 <!-- ═══ PANEL: DASHBOARD ═══ -->
@@ -474,6 +489,49 @@
   </div>
 </div>
 
+<!-- ═══ PANEL: ESTADÍSTICAS — ranking de guardias, horarios, ritmo de rondines ═══ -->
+<div class="panel" id="panel-estadisticas">
+  <div class="stats" style="margin-bottom:20px;grid-template-columns:repeat(4,1fr)">
+    <div class="stat-mini"><div class="stat-mini-label">Guardia más activo</div><div class="stat-mini-value" id="e-top-guardia">—</div><div class="stat-mini-sub" id="e-top-guardia-sub">—</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Guardia menos activo</div><div class="stat-mini-value" id="e-bottom-guardia">—</div><div class="stat-mini-sub" id="e-bottom-guardia-sub">—</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Tiempo prom. entre escaneos</div><div class="stat-mini-value" id="e-tiempo-prom">—</div><div class="stat-mini-sub">de un puesto al siguiente</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Puesto más olvidado</div><div class="stat-mini-value" id="e-puesto-olvidado" style="font-size:14px">—</div><div class="stat-mini-sub" id="e-puesto-olvidado-sub">—</div></div>
+  </div>
+
+  <div class="two-col">
+    <div class="section">
+      <div class="section-header"><span class="section-title">Ranking de guardias (total de escaneos)</span><span class="section-count" id="e-guardias-total">—</span></div>
+      <div id="e-ranking-guardias" style="padding:8px 4px;max-height:420px;overflow-y:auto"></div>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="section-title">Actividad por hora del día</span><span class="section-count">0-23h</span></div>
+      <div class="hour-histogram" id="e-hour-histogram" style="padding:20px 8px 8px"></div>
+      <div class="section-header" style="border-top:1px solid var(--border);margin-top:8px"><span class="section-title">Diurno vs. Nocturno</span></div>
+      <div style="padding:12px 4px">
+        <div class="bar-row"><span class="bar-label">☀️ Diurno</span><div class="bar-track"><div class="bar-fill" id="e-bar-diurno" style="width:0%"></div></div><span class="bar-value" id="e-val-diurno">—</span></div>
+        <div class="bar-row"><span class="bar-label">🌙 Nocturno</span><div class="bar-track"><div class="bar-fill" id="e-bar-nocturno" style="width:0%;background:#7c8cf8"></div></div><span class="bar-value" id="e-val-nocturno">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:16px">
+    <div class="section-header"><span class="section-title">Ritmo de rondines por guardia</span><span class="section-count" id="e-ritmo-count">—</span></div>
+    <div class="log-wrap">
+      <table class="log-table">
+        <thead><tr>
+          <th>Guardia</th><th>Total escaneos</th><th>Tiempo prom. entre puestos</th><th>Turno predominante</th><th>Puestos distintos cubiertos</th>
+        </tr></thead>
+        <tbody id="e-ritmo-body"><tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:16px">
+    <div class="section-header"><span class="section-title">Cobertura histórica por puesto (todo el historial)</span><span class="section-count" id="e-puestos-count">—</span></div>
+    <div id="e-ranking-puestos" style="padding:8px 4px;max-height:420px;overflow-y:auto"></div>
+  </div>
+</div>
+
 <footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
 
 <script>
@@ -481,7 +539,7 @@
 // Migrado de Airtable a Google Sheets / Apps Script: GOOGLE_SCRIPT_URL es ahora
 // la única fuente de datos (sirve tanto al dashboard/cards/log como al historial).
 // Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxN-ozggLKUkWOXz5z39qItL_LH26nejAifGXuN9DK4vI1tlgd8duNm8PhGy5tPWjd1hw/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxr96AI08voPVniPfHYqhlAHnvdVg83LDiXXtd7uuI1ldiRVKYDI573z5U_RLbfU_Mg0A/exec";
 const PASSWORD_CORRECTA = "875223";
 
 // AIRTABLE_TOKEN / BASE_ID / TABLE_ID ya no se usan tras la migración.
@@ -907,6 +965,7 @@ async function loadHistorial(){
     buildHistMonthSelector();buildHistGuardiaSelector();buildHistPuestoSelector();
     renderHistorial();
     renderAnalisisRondas();
+    renderEstadisticas();
   }catch(err){
     const e=`<div class="error-box">Error Google Sheets: ${err.message}</div>`;
     if(hlb)hlb.innerHTML=`<tr><td colspan="6">${e}</td></tr>`;if(hpl)hpl.innerHTML=e;
@@ -1226,6 +1285,152 @@ function exportarHistorialPDF(){
   ventana.document.close();
   ventana.focus();
   setTimeout(()=>ventana.print(),300);
+}// ══════════════════════════════════════════════════════════════════════════
+// ESTADÍSTICAS DE GUARDIAS — ranking, horarios, ritmo entre escaneos
+// Usa histData completo (todo el historial archivado + mes actual), ya
+// filtrado a solo Guardia (ver fetchHistorial).
+// ══════════════════════════════════════════════════════════════════════════
+function fmtMin(min){
+  if(min===null||isNaN(min))return '—';
+  if(min<60)return `${Math.round(min)} min`;
+  const h=Math.floor(min/60),m=Math.round(min%60);
+  return `${h}h ${m}min`;
+}
+
+function calcularEstadisticasGuardias(){
+  const porGuardia={};
+  histData.forEach(r=>{
+    if(!r.guardia||r.guardia==='—')return;
+    if(!porGuardia[r.guardia])porGuardia[r.guardia]={total:0,horas:new Array(24).fill(0),diurno:0,nocturno:0,puestos:new Set()};
+    const g=porGuardia[r.guardia];
+    g.total++;
+    if(r._date)g.horas[r._date.getHours()]++;
+    if((r.turno||'').toLowerCase()==='diurno')g.diurno++;else g.nocturno++;
+    g.puestos.add(r.checkpoint.split(' ')[0]);
+  });
+  return porGuardia;
+}
+
+// Tiempo entre escaneos consecutivos del mismo guardia, agrupado por turno
+// de 24h (para no mezclar el último escaneo de un turno con el primero del
+// siguiente). Ignora huecos mayores a 4h (cambios de turno, descansos largos).
+function calcularTiempoEntreEscaneos(){
+  const porGuardiaTurno={};
+  histData.forEach(r=>{
+    if(!r.guardia||!r._date)return;
+    const key=`${r.guardia}|${turnoKeyFromDate_(r._date)}`;
+    if(!porGuardiaTurno[key])porGuardiaTurno[key]=[];
+    porGuardiaTurno[key].push(r._date);
+  });
+  const gapsPorGuardia={};
+  Object.keys(porGuardiaTurno).forEach(key=>{
+    const guardia=key.split('|')[0];
+    const ordenadas=[...porGuardiaTurno[key]].sort((a,b)=>a-b);
+    for(let i=1;i<ordenadas.length;i++){
+      const gap=(ordenadas[i]-ordenadas[i-1])/60000;
+      if(gap>0&&gap<240){
+        if(!gapsPorGuardia[guardia])gapsPorGuardia[guardia]=[];
+        gapsPorGuardia[guardia].push(gap);
+      }
+    }
+  });
+  return gapsPorGuardia;
+}
+
+function renderEstadisticas(){
+  const porGuardia=calcularEstadisticasGuardias();
+  const gaps=calcularTiempoEntreEscaneos();
+  const guardiasArr=Object.entries(porGuardia).sort((a,b)=>b[1].total-a[1].total);
+
+  if(guardiasArr.length===0){
+    ['e-top-guardia','e-bottom-guardia'].forEach(id=>setText(id,'—'));
+    setText('e-tiempo-prom','—');setText('e-puesto-olvidado','—');
+    document.getElementById('e-ranking-guardias').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin datos suficientes</div>';
+    document.getElementById('e-ritmo-body').innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin datos suficientes</td></tr>';
+    return;
+  }
+
+  // Top / bottom guardia
+  const top=guardiasArr[0],bottom=guardiasArr[guardiasArr.length-1];
+  setText('e-top-guardia',top[0]);setText('e-top-guardia-sub',`${top[1].total} escaneos`);
+  setText('e-bottom-guardia',bottom[0]);setText('e-bottom-guardia-sub',`${bottom[1].total} escaneos`);
+
+  // Tiempo promedio global entre escaneos
+  const todosLosGaps=Object.values(gaps).flat();
+  const tiempoProm=todosLosGaps.length?todosLosGaps.reduce((a,b)=>a+b,0)/todosLosGaps.length:null;
+  setText('e-tiempo-prom',fmtMin(tiempoProm));
+
+  // Ranking de guardias (barras)
+  const maxTotal=guardiasArr[0][1].total;
+  setText('e-guardias-total',`${guardiasArr.length} guardias`);
+  const rankingEl=document.getElementById('e-ranking-guardias');
+  rankingEl.innerHTML='';
+  guardiasArr.forEach(([nombre,g])=>{
+    const pct=Math.round((g.total/maxTotal)*100);
+    const row=document.createElement('div');row.className='bar-row';
+    row.innerHTML=`<span class="bar-label" title="${nombre}">${nombre}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div><span class="bar-value">${g.total}</span>`;
+    rankingEl.appendChild(row);
+  });
+
+  // Histograma por hora del día (agregando todos los guardias)
+  const horasTotal=new Array(24).fill(0);
+  Object.values(porGuardia).forEach(g=>g.horas.forEach((c,h)=>horasTotal[h]+=c));
+  const maxHora=Math.max(...horasTotal,1);
+  const histEl=document.getElementById('e-hour-histogram');
+  histEl.innerHTML='';
+  horasTotal.forEach((c,h)=>{
+    const alturaPct=Math.round((c/maxHora)*100);
+    const wrap=document.createElement('div');wrap.className='hour-bar-wrap';
+    wrap.title=`${h}:00 — ${c} escaneos`;
+    wrap.innerHTML=`<div class="hour-bar" style="height:${Math.max(alturaPct,2)}%"></div>${h%3===0?`<div class="hour-label">${h}h</div>`:'<div class="hour-label"></div>'}`;
+    histEl.appendChild(wrap);
+  });
+
+  // Diurno vs Nocturno
+  const totalDiurno=Object.values(porGuardia).reduce((a,g)=>a+g.diurno,0);
+  const totalNocturno=Object.values(porGuardia).reduce((a,g)=>a+g.nocturno,0);
+  const totalDN=totalDiurno+totalNocturno||1;
+  document.getElementById('e-bar-diurno').style.width=Math.round((totalDiurno/totalDN)*100)+'%';
+  document.getElementById('e-bar-nocturno').style.width=Math.round((totalNocturno/totalDN)*100)+'%';
+  setText('e-val-diurno',totalDiurno);setText('e-val-nocturno',totalNocturno);
+
+  // Tabla de ritmo por guardia
+  setText('e-ritmo-count',`${guardiasArr.length} guardias`);
+  const ritmoBody=document.getElementById('e-ritmo-body');
+  ritmoBody.innerHTML='';
+  guardiasArr.forEach(([nombre,g])=>{
+    const gapsGuardia=gaps[nombre]||[];
+    const promGuardia=gapsGuardia.length?gapsGuardia.reduce((a,b)=>a+b,0)/gapsGuardia.length:null;
+    const turnoPredominante=g.diurno>=g.nocturno?'Diurno':'Nocturno';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${nombre}</td><td>${g.total}</td><td>${fmtMin(promGuardia)}</td><td><span class="turno-pill ${turnoPredominante==='Diurno'?'d':'n'}">${turnoPredominante}</span></td><td>${g.puestos.size}/${ALL_POST_IDS.length}</td>`;
+    ritmoBody.appendChild(tr);
+  });
+
+  // Cobertura histórica por puesto (todo el historial)
+  const conteoPuestos={};
+  ALL_POST_IDS.forEach(id=>conteoPuestos[id]=0);
+  histData.forEach(r=>{
+    const cp=r.checkpoint.split(' ')[0];
+    if(cp in conteoPuestos)conteoPuestos[cp]++;
+  });
+  const puestosArr=ALL_POST_IDS.map(id=>({id,count:conteoPuestos[id],nombre:(POSTS.find(p=>p.id===id)||{}).name||id}))
+    .sort((a,b)=>a.count-b.count);
+  const peor=puestosArr[0];
+  setText('e-puesto-olvidado',peor?`${peor.id} ${peor.nombre}`:'—');
+  setText('e-puesto-olvidado-sub',peor?`${peor.count} escaneos en todo el historial`:'—');
+
+  setText('e-puestos-count',`${puestosArr.length} puestos`);
+  const maxPuesto=Math.max(...puestosArr.map(p=>p.count),1);
+  const puestosEl=document.getElementById('e-ranking-puestos');
+  puestosEl.innerHTML='';
+  puestosArr.forEach(p=>{
+    const pct=Math.round((p.count/maxPuesto)*100);
+    const bajo=p.count<maxPuesto*0.3;
+    const row=document.createElement('div');row.className='bar-row';
+    row.innerHTML=`<span class="bar-label" title="${p.id} ${p.nombre}">${p.id} ${p.nombre}</span><div class="bar-track"><div class="bar-fill" style="width:${pct}%;${bajo?'background:var(--danger)':''}"></div></div><span class="bar-value">${p.count}</span>`;
+    puestosEl.appendChild(row);
+  });
 }
 </script>
 </body>
