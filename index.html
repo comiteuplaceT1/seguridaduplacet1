@@ -246,7 +246,7 @@
     <div class="stat ok"><div class="stat-label">Escaneos</div><div class="stat-value" id="s-today">—</div><div class="stat-sub">de 57 esperados</div></div>
     <div class="stat blue"><div class="stat-label">Último escaneo</div><div class="stat-value" id="s-last" style="font-size:18px;padding-top:6px">—</div><div class="stat-sub" id="s-last-post">—</div></div>
     <div class="stat warn"><div class="stat-label">Puestos activos</div><div class="stat-value" id="s-active">—</div><div class="stat-sub">de 19 puestos</div></div>
-    <div class="stat red"><div class="stat-label">Rondas completas</div><div class="stat-value" id="s-late">—</div><div class="stat-sub">de 3 esperadas en el turno</div></div>
+    <div class="stat red"><div class="stat-label">Sin registrar hoy</div><div class="stat-value" id="s-late">—</div><div class="stat-sub">de 19 puestos, cero rondines</div></div>
   </div>
   <div class="progress-wrap">
     <div class="progress-header">
@@ -481,7 +481,7 @@
 // Migrado de Airtable a Google Sheets / Apps Script: GOOGLE_SCRIPT_URL es ahora
 // la única fuente de datos (sirve tanto al dashboard/cards/log como al historial).
 // Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbykQan5V0WHMcekTG3eOC298GOw8JtTXiDIaQfBMNABg98MEg1_GSjK4oaR9n29VR8QJQ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxN-ozggLKUkWOXz5z39qItL_LH26nejAifGXuN9DK4vI1tlgd8duNm8PhGy5tPWjd1hw/exec";
 const PASSWORD_CORRECTA = "875223";
 
 // AIRTABLE_TOKEN / BASE_ID / TABLE_ID ya no se usan tras la migración.
@@ -516,66 +516,40 @@ const POSTS = [
 const POST_LABELS = {};
 POSTS.forEach(p => { POST_LABELS[p.id] = `${p.id} ${p.name} (${p.level})`; });
 
-// ── LÓGICA DE RONDAS (reemplaza el criterio viejo de "+2h = con retraso") ──
-// El guardia hace 3 rondines completos por turno de 24h, siempre empezando
-// en Puesto-01 y avanzando en orden hasta Puesto-23. Cada vez que aparece
-// un escaneo de Puesto-01 se considera el inicio de una ronda nueva.
+// ── COBERTURA POR PUESTO (reemplaza el modelo de "rondas por orden") ──────
+// Cuenta cuántas veces se escaneó cada puesto en el período dado, SIN asumir
+// que los guardias siguen el orden 1→N. En la práctica no lo hacen siempre,
+// y ese supuesto generaba falsos "0/3" y listas de "saltados" enormes que no
+// reflejaban la realidad. Contar visitas reales por puesto es más honesto.
 const ALL_POST_IDS = POSTS.map(p => p.id);
 const RONDAS_ESPERADAS_POR_TURNO = 3;
 
-function postIndex(id) {
-  const m = (id || '').match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : -1;
-}
+// records: array de {fields:{Checkpoint,Timestamp,Guardia,...}} ya filtrados al período deseado
+function calcularCumplimiento(records) {
+  const conteo = {};
+  ALL_POST_IDS.forEach(id => { conteo[id] = { count: 0, ultimoTs: null, guardia: null }; });
 
-// records: array de {fields:{Checkpoint,Timestamp,Guardia,...}} ya filtrados al turno actual
-function detectarRondas(records) {
-  const sorted = [...records].sort((a, b) => new Date(a.fields.Timestamp) - new Date(b.fields.Timestamp));
-  const rondas = [];
-  let actual = null;
-  sorted.forEach(r => {
+  records.forEach(r => {
     const cp = (r.fields.Checkpoint || '').split(' ')[0];
+    if (!(cp in conteo)) return;
+    conteo[cp].count++;
     const ts = r.fields.Timestamp;
-    if (cp === 'Puesto-01' || !actual) {
-      if (actual) rondas.push(actual);
-      actual = { scans: new Map() };
+    if (!conteo[cp].ultimoTs || new Date(ts) > new Date(conteo[cp].ultimoTs)) {
+      conteo[cp].ultimoTs = ts;
+      conteo[cp].guardia = r.fields.Guardia;
     }
-    actual.scans.set(cp, { ts, guardia: r.fields.Guardia });
-  });
-  if (actual) rondas.push(actual);
-  return rondas;
-}
-
-// Regresa el estado completo del turno: rondas cerradas completas, ronda en
-// curso (si la hay), y qué puestos están saltados vs. simplemente pendientes
-// dentro de esa ronda en curso.
-function calcularEstadoRondas(records) {
-  const rondas = detectarRondas(records);
-  let rondasCompletas = 0;
-  let rondaActual = null;
-
-  rondas.forEach((ronda, i) => {
-    const completa = ALL_POST_IDS.every(id => ronda.scans.has(id));
-    const esUltima = i === rondas.length - 1;
-    if (completa) rondasCompletas++;
-    else if (esUltima) rondaActual = ronda; // la única ronda que puede seguir "en curso"
   });
 
-  let saltados = [], pendientes = [], maxIndex = -1;
-  if (rondaActual) {
-    rondaActual.scans.forEach((_, id) => { maxIndex = Math.max(maxIndex, postIndex(id)); });
-    ALL_POST_IDS.forEach(id => {
-      if (rondaActual.scans.has(id)) return;
-      if (postIndex(id) <= maxIndex) saltados.push(id); // ya se pasó ese punto y no lo escaneó
-      else pendientes.push(id); // todavía no le toca en el recorrido
-    });
-  } else {
-    // no hay ronda en curso: o no ha empezado ninguna, o todas las cerradas están completas
-    pendientes = [...ALL_POST_IDS];
-  }
+  const sinRegistro = [], parcial = [], completo = [];
+  ALL_POST_IDS.forEach(id => {
+    const c = conteo[id].count;
+    if (c === 0) sinRegistro.push(id);
+    else if (c < RONDAS_ESPERADAS_POR_TURNO) parcial.push(id);
+    else completo.push(id);
+  });
 
-  const totalCubiertos = rondasCompletas * ALL_POST_IDS.length + (rondaActual ? rondaActual.scans.size : 0);
-  return { rondasCompletas, rondaActual, saltados, pendientes, maxIndex, totalCubiertos };
+  const totalCubiertos = ALL_POST_IDS.reduce((acc, id) => acc + Math.min(conteo[id].count, RONDAS_ESPERADAS_POR_TURNO), 0);
+  return { conteo, sinRegistro, parcial, completo, totalCubiertos };
 }
 
 // ── SESIÓN ────────────────────────────────────────────────────────────────────
@@ -618,7 +592,7 @@ function fmtDT(ts){if(!ts)return'—';const d=new Date(ts);return d.toLocaleDate
 function minsAgo(ts){if(!ts)return null;return Math.floor((Date.now()-new Date(ts).getTime())/60000);}
 function getStatusForTurno(ts,mins){if(!ts)return'pending';if(mins<=120)return'ok';if(mins<=180)return'warn';return'late';}
 function agoText(mins){if(mins===null)return'Sin registro en turno actual';if(mins<60)return`Hace ${mins} min`;return`Hace ${Math.floor(mins/60)}h ${mins%60}min`;}
-function badgeLabel(s){return s==='ok'?'Completado':s==='warn'?'Aviso':s==='late'?'Con retraso':'Pendiente';}
+function badgeLabel(s){return s==='ok'?'Completo':s==='warn'?'Parcial':s==='late'?'Sin registrar':'Pendiente';}
 function isOnDate(ts,dateFilter,customVal){
   if(!ts)return false;const d=new Date(ts);const now=new Date();
   if(dateFilter==='hoy')return d.toDateString()===now.toDateString();
@@ -747,39 +721,36 @@ function renderDashboard(records){
   const lastScanBase={};
   baseRecs.forEach(r=>{const f=r.fields;const cp=(f.Checkpoint||'').split(' ')[0];const ts=f.Timestamp||f['Created Time'];if(!lastScanBase[cp]||new Date(ts)>new Date(lastScanBase[cp].ts))lastScanBase[cp]={ts};});
 
-  const estadoRondas=useTurnoLogic?calcularEstadoRondas(turnoRecs):null;
-  const rondasCompletas=estadoRondas?estadoRondas.rondasCompletas:0;
+  const estado=useTurnoLogic?calcularCumplimiento(turnoRecs):null;
 
   const latest=baseRecs[0];const latestTs=latest?(latest.fields.Timestamp||latest.fields['Created Time']):null;
   setText('s-today',baseRecs.length);setText('s-active',Object.keys(lastScanBase).length);
-  setText('s-late',useTurnoLogic?`${rondasCompletas}/${RONDAS_ESPERADAS_POR_TURNO}`:'—');
+  setText('s-late',useTurnoLogic&&estado?estado.sinRegistro.length:'—');
   setText('s-last',fmtTime(latestTs));setText('s-last-post',(latest?.fields?.Checkpoint||'—').replace(/Puesto-\d+\s*/i,''));
 
-  const pct=useTurnoLogic&&estadoRondas?Math.min(Math.round((estadoRondas.totalCubiertos/TARGET)*100),100):Math.min(Math.round((turnoRecs.length/TARGET)*100),100);
+  const pct=useTurnoLogic&&estado?Math.min(Math.round((estado.totalCubiertos/TARGET)*100),100):Math.min(Math.round((turnoRecs.length/TARGET)*100),100);
   setText('progress-pct',pct+'%');
   const fill=document.getElementById('progress-fill');if(fill){fill.style.width=pct+'%';fill.className='progress-fill'+(pct>=80?'':pct>=50?' warn':' low');}
 
   const banner=document.getElementById('alert-banner');
   if(banner){
-    const saltados=estadoRondas?estadoRondas.saltados:[];
-    if(useTurnoLogic&&saltados.length>0){
-      const nombres=saltados.map(id=>{const p=POSTS.find(pp=>pp.id===id);return p?`${id} ${p.name}`:id;}).join(', ');
-      banner.classList.add('show');setText('alert-text',`Puesto(s) saltado(s) en la ronda actual: ${nombres}`);
+    if(useTurnoLogic&&estado&&(estado.sinRegistro.length>0)){
+      const nombres=estado.sinRegistro.map(id=>{const p=POSTS.find(pp=>pp.id===id);return p?`${id} ${p.name}`:id;}).join(', ');
+      banner.classList.add('show');setText('alert-text',`Sin NINGÚN rondín hoy (${estado.sinRegistro.length}): ${nombres}`);
     } else banner.classList.remove('show');
   }
 
-  // Posts list — estado por puesto basado en la ronda en curso del turno
+  // Posts list — cobertura real por puesto en el turno (0/3, 1-2/3, 3/3)
   const postsList=document.getElementById('posts-list');
   if(postsList){
     postsList.innerHTML='';
     POSTS.forEach(p=>{
-      let status='pending',timeLabel='—',subLabel='pendiente';
-      if(useTurnoLogic&&estadoRondas){
-        if(estadoRondas.saltados.includes(p.id)){status='late';subLabel='SALTADO en esta ronda';}
-        else if(estadoRondas.rondaActual&&estadoRondas.rondaActual.scans.has(p.id)){
-          status='ok';const s=estadoRondas.rondaActual.scans.get(p.id);timeLabel=fmtTime(s.ts);subLabel='escaneado';
-        } else if(estadoRondas.rondasCompletas>0){status='ok';subLabel=`cubierto en ronda(s) anterior(es)`;}
-        else{subLabel='pendiente en esta ronda';}
+      let status='pending',timeLabel='—',subLabel=`0/${RONDAS_ESPERADAS_POR_TURNO} hoy`;
+      if(useTurnoLogic&&estado){
+        const c=estado.conteo[p.id];
+        if(c.count===0){status='late';subLabel=`SIN registrar hoy`;}
+        else if(c.count<RONDAS_ESPERADAS_POR_TURNO){status='warn';timeLabel=fmtTime(c.ultimoTs);subLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO} hoy`;}
+        else{status='ok';timeLabel=fmtTime(c.ultimoTs);subLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO} completo`;}
       }
       const el=document.createElement('div');el.className='post-item';
       el.innerHTML=`<div class="post-dot ${status}"></div><div class="post-info"><div class="post-id">${p.id} · ${p.level}</div><div class="post-name">${p.name}</div></div><div class="post-time ${status}">${timeLabel}<br><span style="font-size:9px;color:var(--muted)">${subLabel}</span></div><div class="pill ${status}">${badgeLabel(status)}</div>`;
@@ -816,20 +787,20 @@ function renderCards(){
   const lastScan={};const scanCount={};
   filtered.forEach(r=>{const f=r.fields;const cp=(f.Checkpoint||'').split(' ')[0];const ts=f.Timestamp||f['Created Time'];scanCount[cp]=(scanCount[cp]||0)+1;if(!lastScan[cp]||new Date(ts)>new Date(lastScan[cp].ts))lastScan[cp]={ts,guardia:f.Guardia,turno:f.Turno};});
   const useTurnoLogic=(filterDate==='hoy');let doneCount=0;
-  const estadoRondas=useTurnoLogic?calcularEstadoRondas(allRecords.filter(r=>isInCurrentTurno(r.fields.Timestamp||r.fields['Created Time']))):null;
+  const estado=useTurnoLogic?calcularCumplimiento(allRecords.filter(r=>isInCurrentTurno(r.fields.Timestamp||r.fields['Created Time']))):null;
   const grid=document.getElementById('cards-grid');if(!grid)return;grid.innerHTML='';
   POSTS.forEach(p=>{
-    const s=lastScan[p.id];let status;
-    if(useTurnoLogic&&estadoRondas){
-      if(estadoRondas.saltados.includes(p.id))status='late';
-      else if((estadoRondas.rondaActual&&estadoRondas.rondaActual.scans.has(p.id))||estadoRondas.rondasCompletas>0)status='ok';
-      else status='pending';
+    const s=lastScan[p.id];let status,agoLabel;
+    if(useTurnoLogic&&estado){
+      const c=estado.conteo[p.id];
+      if(c.count===0){status='late';agoLabel='SIN registrar hoy';}
+      else if(c.count<RONDAS_ESPERADAS_POR_TURNO){status='warn';agoLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO} hoy — ${s?fmtDT(s.ts):'—'}`;}
+      else{status='ok';agoLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO} completo — ${s?fmtDT(s.ts):'—'}`;}
     }
-    else status=s?'ok':'pending';
+    else{status=s?'ok':'pending';agoLabel=s?fmtDT(s.ts):'Sin registro';}
     if(status==='ok')doneCount++;
-    const mins=s?minsAgo(s.ts):null;const count=scanCount[p.id]||0;
+    const count=scanCount[p.id]||0;
     const card=document.createElement('div');card.className=`post-card ${status}`;
-    const agoLabel=status==='late'?'Saltado en la ronda actual':(s?fmtDT(s.ts):'Sin registro');
     card.innerHTML=`<div class="card-top"><div><div class="card-id">${p.id}</div><div class="card-name">${p.name} — ${p.level}</div></div><div class="card-badge ${status}">${badgeLabel(status)}</div></div><div class="card-ago ${status}">${agoLabel}</div><hr class="card-divider"><div class="card-rows"><div class="card-row"><span class="card-row-label">Último:</span><span class="card-row-value">${s?fmtDT(s.ts):'—'}</span></div><div class="card-row"><span class="card-row-label">Guardia:</span><span class="card-row-value">${s?(s.guardia||'—'):'—'}</span></div><div class="card-row"><span class="card-row-label">Rondines:</span><span class="card-row-value">${count}</span></div></div>`;
     grid.appendChild(card);
   });
