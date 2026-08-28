@@ -433,7 +433,7 @@
         <table class="log-table" id="table-historial">
           <thead><tr>
             <th class="sortable" onclick="toggleSort('hist','num',this)"># <span class="sort-icon">⇅</span></th>
-            <th class="sortable" onclick="toggleSort('hist','time',this)">Fecha / Hora <span class="sort-icon">⇅</span></th>
+            <th class="sortable sort-desc" onclick="toggleSort('hist','time',this)">Fecha / Hora <span class="sort-icon">↓</span></th>
             <th class="sortable" onclick="toggleSort('hist','checkpoint',this)">Puesto <span class="sort-icon">⇅</span></th>
             <th class="sortable" onclick="toggleSort('hist','guardia',this)">Guardia <span class="sort-icon">⇅</span></th>
             <th>Turno</th><th>Notas</th>
@@ -661,11 +661,12 @@
   </div>
 </div>
 
-<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min · Diseñado por Pablo Cueto para la comunidad Uplace</footer>
+<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min · Diseñado por Pablo Cueto para la Comunidad Uplace</footer>
 
 <script>
 // ── CREDENCIALES ──────────────────────────────────────────────────────────────
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwvNxO81fDIgGSyZMuPT-tZBy-cPioSUmOtS_r_hVjZDrozOgP6zg5qSOBRC6H_7a9hvQ/exec";
+
 const TARGET   = 57; // 3 rondas x 19 puestos por turno de 24h
 
 const POSTS = [
@@ -693,15 +694,16 @@ const POSTS = [
 const POST_LABELS = {};
 POSTS.forEach(p => { POST_LABELS[p.id] = `${p.id} ${p.name} (${p.level})`; });
 
-// ── COBERTURA POR PUESTO (reemplaza el modelo de "rondas por orden") ──────
-// Cuenta cuántas veces se escaneó cada puesto en el período dado, SIN asumir
-// que los guardias siguen el orden 1→N. En la práctica no lo hacen siempre,
-// y ese supuesto generaba falsos "0/3" y listas de "saltados" enormes que no
-// reflejaban la realidad. Contar visitas reales por puesto es más honesto.
+function checkpointConNombre_(raw){
+  if(!raw||raw==='—')return raw||'—';
+  const id=raw.split(' ')[0];
+  const p=POSTS.find(pp=>pp.id===id);
+  return p?`${id} ${p.name}`:raw;
+}
+
 const ALL_POST_IDS = POSTS.map(p => p.id);
 const RONDAS_ESPERADAS_POR_TURNO = 3;
 
-// records: array de {fields:{Checkpoint,Timestamp,Guardia,...}} ya filtrados al período deseado
 function calcularCumplimiento(records) {
   const conteo = {};
   ALL_POST_IDS.forEach(id => { conteo[id] = { count: 0, ultimoTs: null, guardia: null }; });
@@ -733,9 +735,6 @@ function calcularCumplimiento(records) {
 const SESSION_KEY = 'uplace_session_v2';
 function checkSession(){return localStorage.getItem(SESSION_KEY)==='active';}
 
-// Validación de contraseña vía JSONP contra el Apps Script (no via fetch()
-// normal, porque doGet() de Apps Script no manda cabeceras CORS). El backend
-// nunca revela la contraseña real, solo responde {ok:true|false}.
 function verificarPasswordBackend_(pass){
   return new Promise((resolve,reject)=>{
     const cbName='uplaceLoginCb_'+Date.now();
@@ -812,7 +811,7 @@ function setText(id,val){const el=document.getElementById(id);if(el)el.textConte
 const sortState={
   dash:{col:null,dir:'desc'},
   log: {col:null,dir:'desc'},
-  hist:{col:null,dir:'desc'},
+  hist:{col:'time',dir:'desc'},
 };
 
 function toggleSort(table,col,thEl){
@@ -876,9 +875,6 @@ async function fetchRecords(){
   return sorted.filter(r=>(r['Rol']||'Guardia')==='Guardia').map(mapRowToFields_);
 }
 
-// Registros de administración, completamente separados de la vista de guardias.
-// Mismo motivo que arriba: sin slice(0,100), para que los filtros de fecha
-// funcionen con cualquier día del mes en curso, no solo con hoy.
 async function fetchAdminRecords(){
   const sorted=await fetchAllRows_();
   return sorted.filter(r=>r['Rol']==='Administracion').map(mapRowToFields_);
@@ -893,7 +889,7 @@ function populateGuardias(records){
   });
 }
 
-// ── CARGA BAJO DEMANDA DE MESES ARCHIVADOS ─────────────────────────────────
+const mesesYaCargados=new Set(); // claves 'YYYY-M' ya mezcladas a allRecords/adminRecords además de mes actual+anterior
 
 function claveMesDeFecha_(fechaVal){
   const[y,m]=fechaVal.split('-').map(Number);
@@ -908,8 +904,6 @@ function esMesYaCubiertoPorCargaInicial_(claveMes){
   return claveMes===mesActual||claveMes===mesAnterior;
 }
 
-// Devuelve true si tuvo que hacer una llamada de red (útil para mostrar un
-// indicador de carga); false si la fecha ya estaba cubierta o en caché.
 async function asegurarMesCargadoParaFecha_(fechaVal){
   if(!fechaVal)return false;
   const claveMes=claveMesDeFecha_(fechaVal);
@@ -1026,8 +1020,6 @@ function renderDashboard(records){
   setText('progress-pct',pct+'%');
   const fill=document.getElementById('progress-fill');if(fill){fill.style.width=pct+'%';fill.className='progress-fill'+(pct>=80?'':pct>=50?' warn':' low');}
 
-  // Título dinámico: deja explícito de qué turno se está hablando, para que
-  // nunca parezca "el turno actual" cuando en realidad se filtró otro día.
   const tituloEl=document.getElementById('progress-title');
   let etiquetaDia='hoy';
   if(tituloEl){
@@ -1044,7 +1036,6 @@ function renderDashboard(records){
     } else banner.classList.remove('show');
   }
 
-  // Posts list — cobertura real por puesto en el turno filtrado (0/3, 1-2/3, 3/3)
   const postsList=document.getElementById('posts-list');
   if(postsList){
     postsList.innerHTML='';
@@ -1077,7 +1068,7 @@ function renderDashboard(records){
     sorted.slice(0,30).forEach(row=>{
       const f=row._r.fields;const ts=f.Timestamp||f['Created Time'];const turno=(f.Turno||'').toLowerCase();
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td style="color:var(--muted)">${fmtDT(ts)}</td><td>${f.Checkpoint||'—'}</td><td>${f.Guardia||'—'}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${f.Turno||'—'}</span></td><td style="color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
+      tr.innerHTML=`<td style="color:var(--muted)">${fmtDT(ts)}</td><td>${checkpointConNombre_(f.Checkpoint)}</td><td>${f.Guardia||'—'}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${f.Turno||'—'}</span></td><td style="color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
       tbody.appendChild(tr);
     });
   }
@@ -1130,7 +1121,7 @@ function renderLog(){
     const tr=document.createElement('tr');
     if(f.Alerta)tr.style.background='rgba(240,79,79,.08)';
     const badgeAlerta=f.Alerta?` <span title="Registrado muy rápido después del anterior — posible patrón irregular" style="color:var(--danger);font-weight:700;">⚠️</span>`:'';
-    tr.innerHTML=`<td style="color:var(--muted)">${st.col==='num'&&st.dir==='asc'?i+1:sorted.length-i}</td><td style="color:var(--muted)">${fmtDT(ts)}</td><td>${f.Checkpoint||'—'}${badgeAlerta}</td><td>${f.Guardia||'—'}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${f.Turno||'—'}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
+    tr.innerHTML=`<td style="color:var(--muted)">${st.col==='num'&&st.dir==='asc'?i+1:sorted.length-i}</td><td style="color:var(--muted)">${fmtDT(ts)}</td><td>${checkpointConNombre_(f.Checkpoint)}${badgeAlerta}</td><td>${f.Guardia||'—'}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${f.Turno||'—'}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -1354,7 +1345,7 @@ function renderHistorial(){
       if(r.alerta)tr.style.background='rgba(240,79,79,.08)';
       const badgeAlerta=r.alerta?` <span title="Registrado muy rápido después del anterior — posible patrón irregular" style="color:var(--danger);font-weight:700;">⚠️</span>`:'';
       const num=st.col==='num'&&st.dir==='asc'?i+1:sorted.length-i;
-      tr.innerHTML=`<td style="color:var(--muted)">${num}</td><td style="color:var(--muted)">${r._date?fmtDT(r._date.toISOString()):r.timestamp}</td><td>${r.checkpoint}${badgeAlerta}</td><td>${r.guardia}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${r.turno}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.notas}</td>`;
+      tr.innerHTML=`<td style="color:var(--muted)">${num}</td><td style="color:var(--muted)">${r._date?fmtDT(r._date.toISOString()):r.timestamp}</td><td>${checkpointConNombre_(r.checkpoint)}${badgeAlerta}</td><td>${r.guardia}</td><td><span class="turno-pill ${turno==='diurno'?'d':'n'}">${r.turno}</span></td><td style="color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis">${r.notas}</td>`;
       tbody.appendChild(tr);
     });
   }
@@ -1574,7 +1565,7 @@ function renderAdmin(){
   adminRecords.forEach(r=>{
     const f=r.fields;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="color:var(--muted)">${fmtDT(f.Timestamp)}</td><td>${f.Checkpoint||'—'}</td><td>${f.Guardia||'—'}</td><td style="color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
+    tr.innerHTML=`<td style="color:var(--muted)">${fmtDT(f.Timestamp)}</td><td>${checkpointConNombre_(f.Checkpoint)}</td><td>${f.Guardia||'—'}</td><td style="color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis">${f.Notas||'—'}</td>`;
     body.appendChild(tr);
   });
 }
@@ -1661,7 +1652,6 @@ function exportarEstadisticasPDF(){
   setTimeout(()=>ventana.print(),500);
 }
 
-// ══════════════════════════════════════════════════════════════════════════
 let estFilterMode='todos',estFilterFrom='',estFilterTo='';
 let estFilterTurno='',estFilterGuardia='',estFilterPuesto='';
 
@@ -1789,8 +1779,6 @@ function calcularTiempoEntreEscaneos(records){
   return gapsPorGuardia;
 }
 
-// Igual que turnoKeyFromDate_ pero regresa el objeto Date (no el string), para
-// poder hacer aritmética de días consecutivos.
 function turnoDayDate_(d){
   const dd=new Date(d);
   if(dd.getHours()<7)dd.setDate(dd.getDate()-1);
@@ -1798,9 +1786,6 @@ function turnoDayDate_(d){
   return dd;
 }
 
-// Racha de días consecutivos SIN visita, por puesto. "Racha máxima" = la peor
-// racha que ha tenido ese puesto en todo el período filtrado. "Racha actual"
-// = cuántos días lleva sin visita justo al final del período (si sigue activa).
 function calcularRachasSinVisita(records){
   const diasSet=new Set();
   records.forEach(r=>{if(r._date)diasSet.add(turnoDayDate_(r._date).getTime());});
@@ -1866,12 +1851,6 @@ function calcularHeatmapPuestoHora(records){
   return matriz;
 }
 
-// ── Rondines por día del período (incluye días en cero) ───────────────────
-// A diferencia del resto de las agregaciones (que solo iteran sobre fechas
-// que ya tienen al menos un registro en histData), aquí construimos la lista
-// completa de días del período seleccionado y llenamos con 0 los que no
-// tengan ningún escaneo — así un hueco como "24-27 de agosto sin rondines"
-// aparece explícitamente en vez de simplemente no existir en la tabla.
 function obtenerRangoDiasDelPeriodo(){
   const selMes=document.getElementById('est-month-select');
   const mesVal=selMes?selMes.value:'';
@@ -1981,8 +1960,6 @@ function renderEstadisticas(){
   const records=filtrarParaEstadisticas();
   setText('est-rec-count',`${records.length} registros`);
 
-  // Tarjetas resumen del período (arriba de todo): totales simples, antes de
-  // entrar a los derivados más específicos (ranking, ritmo, heatmap, etc.)
   setText('e-total-registros',records.length);
   const diasConDatos=new Set(records.map(r=>r._date?turnoDayDate_(r._date).getTime():null).filter(Boolean));
   const promedioDiario=diasConDatos.size>0?Math.round(records.length/diasConDatos.size):0;
@@ -2033,10 +2010,6 @@ function renderEstadisticas(){
     rankingEl.appendChild(row);
   });
 
-  // Histograma por hora del día (agregando todos los guardias)
-  // Se reserva ~20% de la altura del track para el número visible encima de
-  // cada barra, así queda legible también en el PDF exportado (no solo en
-  // el tooltip del navegador).
   const horasTotal=new Array(24).fill(0);
   Object.values(porGuardia).forEach(g=>g.horas.forEach((c,h)=>horasTotal[h]+=c));
   const maxHora=Math.max(...horasTotal,1);
@@ -2096,7 +2069,6 @@ function renderEstadisticas(){
     puestosEl.appendChild(row);
   });
 
-
   const sinVisitas=puestosArr.filter(p=>p.count===0);
   setText('e-puestos-cubiertos',ALL_POST_IDS.length-sinVisitas.length);
   setText('e-puestos-cubiertos-sub',`de ${ALL_POST_IDS.length} puestos`);
@@ -2130,6 +2102,7 @@ function renderEstadisticas(){
     dayHistEl.appendChild(wrap);
   });
 
+  // Rachas sin visita por puesto
   const rachas=calcularRachasSinVisita(records);
   setText('e-rachas-count',`${rachas.length} puestos con huecos`);
 
@@ -2159,6 +2132,7 @@ function renderEstadisticas(){
     });
   }
 
+  // Comparativo mes contra mes (ignora filtro de mes/fecha a propósito)
   const comparativo=calcularComparativoMensual();
   setText('e-meses-count',`${comparativo.length} meses`);
   const compEl=document.getElementById('e-comparativo-mensual');
@@ -2175,7 +2149,7 @@ function renderEstadisticas(){
       compEl.appendChild(row);
     });
   }
-  
+
   const heatmap=calcularHeatmapPuestoHora(records);
   const maxCelda=Math.max(...Object.values(heatmap).flat(),1);
   setText('e-heatmap-count',`${ALL_POST_IDS.length} puestos × 24h`);
