@@ -9,7 +9,7 @@
   :root {
     --bg:#0a0c10; --surface:#10131a; --s2:#161b24; --border:#1e2535;
     --accent:#e8c84a; --ok:#2dd4a0; --warn:#f59e0b; --danger:#f04f4f;
-    --blue:#4a8fe8; --text:#dde4f0; --muted:#5a6680;
+    --blue:#4a8fe8; --text:#dde4f0; --muted:#a89968;
     --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -569,26 +569,25 @@
     <button class="btn" onclick="exportarEstadisticasPDF()">⬇ Exportar PDF completo</button>
   </div>
 
-  <div class="stats stats-4" style="margin-bottom:20px">
-    <div class="stat-mini"><div class="stat-mini-label">Registros totales</div><div class="stat-mini-value" id="e-total-registros">—</div><div class="stat-mini-sub" id="e-total-registros-sub">en el período filtrado</div></div>
-    <div class="stat-mini"><div class="stat-mini-label">Total pendientes</div><div class="stat-mini-value" id="e-total-pendientes">—</div><div class="stat-mini-sub" id="e-total-pendientes-sub">escaneos faltantes vs. objetivo</div></div>
-    <div class="stat-mini"><div class="stat-mini-label">Promedio diario</div><div class="stat-mini-value" id="e-promedio-diario">—</div><div class="stat-mini-sub">escaneos/día</div></div>
-    <div class="stat-mini"><div class="stat-mini-label">Guardias activos</div><div class="stat-mini-value" id="e-guardias-activos">—</div><div class="stat-mini-sub">en el período filtrado</div></div>
+  <div class="stats" style="margin-bottom:20px">
+    <div class="stat ok"><div class="stat-label">Registros totales</div><div class="stat-value" id="e-total-registros">—</div><div class="stat-sub" id="e-total-registros-sub">en el período filtrado</div></div>
+    <div class="stat red"><div class="stat-label">Total pendientes</div><div class="stat-value" id="e-total-pendientes">—</div><div class="stat-sub" id="e-total-pendientes-sub">escaneos faltantes vs. objetivo</div></div>
+    <div class="stat blue"><div class="stat-label">Promedio diario</div><div class="stat-value" id="e-promedio-diario">—</div><div class="stat-sub">escaneos/día</div></div>
+    <div class="stat warn"><div class="stat-label">Guardias activos</div><div class="stat-value" id="e-guardias-activos">—</div><div class="stat-sub">en el período filtrado</div></div>
   </div>
-  <div class="stats stats-4" style="margin-bottom:20px">
+  <div class="stats stats-3" style="margin-bottom:20px">
     <div class="stat-mini"><div class="stat-mini-label">Guardia más activo</div><div class="stat-mini-value" id="e-top-guardia">—</div><div class="stat-mini-sub" id="e-top-guardia-sub">—</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Guardia menos activo</div><div class="stat-mini-value" id="e-bottom-guardia">—</div><div class="stat-mini-sub" id="e-bottom-guardia-sub">—</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Tiempo prom. entre escaneos</div><div class="stat-mini-value" id="e-tiempo-prom">—</div><div class="stat-mini-sub">de un puesto al siguiente</div></div>
-    <div class="stat-mini"><div class="stat-mini-label">Puesto más olvidado</div><div class="stat-mini-value" id="e-puesto-olvidado" style="font-size:14px">—</div><div class="stat-mini-sub" id="e-puesto-olvidado-sub">—</div></div>
   </div>
   <div class="stats stats-4" style="margin-bottom:20px">
-    <div class="stat-mini"><div class="stat-mini-label">Puestos sin visitas en el período</div><div class="stat-mini-value" id="e-sin-visitas">—</div><div class="stat-mini-sub" id="e-sin-visitas-sub">de 19 puestos</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Puestos cubiertos</div><div class="stat-mini-value" id="e-puestos-cubiertos">—</div><div class="stat-mini-sub" id="e-puestos-cubiertos-sub">de 19 puestos</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Días sin ningún rondín</div><div class="stat-mini-value" id="e-dias-sin-rondines">—</div><div class="stat-mini-sub" id="e-dias-sin-rondines-sub">en el período mostrado</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Rondines con hallazgos</div><div class="stat-mini-value" id="e-hallazgos">—</div><div class="stat-mini-sub">notas distintas de "sin novedad"</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Día con más actividad</div><div class="stat-mini-value" id="e-dia-top">—</div><div class="stat-mini-sub" id="e-dia-top-sub">—</div></div>
   </div>
   <div class="stats stats-2" style="margin-bottom:20px">
-    <div class="stat-mini"><div class="stat-mini-label">Puestos cubiertos</div><div class="stat-mini-value" id="e-puestos-cubiertos">—</div><div class="stat-mini-sub" id="e-puestos-cubiertos-sub">de 19 puestos</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Puesto más olvidado</div><div class="stat-mini-value" id="e-puesto-olvidado" style="font-size:16px">—</div><div class="stat-mini-sub" id="e-puesto-olvidado-sub">—</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Racha activa más larga ahora mismo</div><div class="stat-mini-value" id="e-racha-activa" style="font-size:16px">—</div><div class="stat-mini-sub" id="e-racha-activa-sub">puesto que más necesita atención hoy</div></div>
   </div>
 
@@ -662,11 +661,12 @@
   </div>
 </div>
 
-<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
+<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min · Diseñado Por Pablo Cueto Para la Comunidad Uplace</footer>
 
 <script>
 // ── CREDENCIALES ──────────────────────────────────────────────────────────────
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqVmTQyUdKT1f1U-CKWbCxDBDEdxKpbByL5LabmVJOXsJZaFBV89M2wwy5GnnEqDB2LA/exec";
+
 const TARGET   = 57; // 3 rondas x 19 puestos por turno de 24h
 
 const POSTS = [
@@ -1966,7 +1966,7 @@ function renderEstadisticas(){
   setText('e-guardias-activos',guardiasArr.length);
 
   if(guardiasArr.length===0){
-    ['e-top-guardia','e-bottom-guardia','e-sin-visitas','e-hallazgos','e-dia-top','e-puestos-cubiertos','e-racha-activa'].forEach(id=>setText(id,'—'));
+    ['e-top-guardia','e-bottom-guardia','e-hallazgos','e-dia-top','e-puestos-cubiertos','e-racha-activa'].forEach(id=>setText(id,'—'));
     setText('e-tiempo-prom','—');setText('e-puesto-olvidado','—');
     document.getElementById('e-ranking-guardias').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</div>';
     document.getElementById('e-ritmo-body').innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</td></tr>';
@@ -2066,10 +2066,10 @@ function renderEstadisticas(){
     puestosEl.appendChild(row);
   });
 
-  // Puestos sin ninguna visita en el período filtrado
+  // Puestos sin ninguna visita en el período filtrado — ya no tiene tarjeta
+  // propia (era la misma información que "Puestos cubiertos" nada más al
+  // revés), pero el conteo se sigue usando internamente aquí abajo.
   const sinVisitas=puestosArr.filter(p=>p.count===0);
-  setText('e-sin-visitas',sinVisitas.length);
-  setText('e-sin-visitas-sub',sinVisitas.length?sinVisitas.map(p=>p.id).join(', '):`de ${ALL_POST_IDS.length} puestos`);
   setText('e-puestos-cubiertos',ALL_POST_IDS.length-sinVisitas.length);
   setText('e-puestos-cubiertos-sub',`de ${ALL_POST_IDS.length} puestos`);
 
