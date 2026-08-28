@@ -176,7 +176,10 @@
     .panel{padding:12px;}.stats{grid-template-columns:repeat(2,1fr);gap:8px;}.stat-value{font-size:24px;}.stat{padding:12px 14px;}
     .cards-stats{grid-template-columns:repeat(3,1fr);gap:8px;}.cstat{padding:12px 8px;}.cstat-value{font-size:20px;}
     .cards-grid{grid-template-columns:1fr 1fr;gap:8px;}.filter-sep{display:none;}.posts-list{max-height:300px;}
-    .two-col .section:last-child{display:none;}
+    /* Antes la segunda columna de .two-col se ocultaba por completo en móvil
+       (display:none). Eso escondía tablas como "Últimos escaneos" sin avisar.
+       Ahora .two-col ya cae a una sola columna a los 900px (ver arriba), así
+       que aquí solo se apila verticalmente: se puede seguir viendo con scroll. */
     .stats-4,.stats-3{grid-template-columns:repeat(2,1fr);gap:8px;}
     .stat-mini{padding:10px;}.stat-mini-value{font-size:16px;}
     .bar-label{width:90px;font-size:11px;}
@@ -191,6 +194,7 @@
   .hour-histogram{display:flex;align-items:flex-end;gap:2px;height:120px;padding:10px 0;}
   .hour-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;}
   .hour-bar{width:100%;background:var(--ok);border-radius:2px 2px 0 0;min-height:2px;}
+  .hour-bar-count{font-size:8px;color:var(--muted);margin-bottom:2px;line-height:1;font-family:var(--mono);}
   .hour-label{font-size:8px;color:var(--muted);margin-top:4px;}
   .stat-mini{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;}
   .stat-mini-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
@@ -272,14 +276,14 @@
   </div>
   <div class="progress-wrap">
     <div class="progress-header">
-      <span class="progress-title">Cumplimiento del turno actual (07:00–07:00)</span>
+      <span class="progress-title" id="progress-title">Cumplimiento del turno actual (07:00–07:00)</span>
       <span class="progress-pct" id="progress-pct">0%</span>
     </div>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
   </div>
   <div class="two-col">
     <div class="section">
-      <div class="section-header"><span class="section-title">Puestos — turno actual</span><span class="section-count">23 puestos</span></div>
+      <div class="section-header"><span class="section-title">Puestos — turno actual</span><span class="section-count">19 puestos</span></div>
       <div class="posts-list" id="posts-list"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
     </div>
     <div class="section">
@@ -444,11 +448,43 @@
 
 <!-- ═══ PANEL: ANÁLISIS DE RONDAS ═══ -->
 <div class="panel" id="panel-analisis">
+  <div class="filters-bar">
+    <span class="filter-label">Mes:</span>
+    <select class="filter-select" id="ana-month-select" onchange="renderAnalisisRondas()" style="min-width:140px">
+      <option value="">— cargando —</option>
+    </select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Fecha:</span>
+    <div class="filter-group">
+      <button class="filter-btn"        id="ana-btn-hoy"    onclick="setAnaDateFilter('hoy',this)">Hoy</button>
+      <button class="filter-btn"        id="ana-btn-ayer"   onclick="setAnaDateFilter('ayer',this)">Ayer</button>
+      <button class="filter-btn active" id="ana-btn-todos"  onclick="setAnaDateFilter('todos',this)">Todos</button>
+      <button class="filter-btn"        id="ana-btn-custom" onclick="setAnaDateFilter('custom',this)">Fecha</button>
+      <input type="date" class="filter-date" id="ana-date-from" style="display:none" onchange="onAnaFilterChange()" title="Desde"/>
+      <span id="ana-date-sep" style="display:none;font-family:var(--mono);font-size:10px;color:var(--muted)">–</span>
+      <input type="date" class="filter-date" id="ana-date-to"   style="display:none" onchange="onAnaFilterChange()" title="Hasta"/>
+    </div>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Turno:</span>
+    <div class="filter-group">
+      <button class="filter-btn active" id="ana-btn-t-all" onclick="setAnaTurnoFilter('',this)">Todos</button>
+      <button class="filter-btn"        id="ana-btn-t-d"   onclick="setAnaTurnoFilter('Diurno',this)">Diurno</button>
+      <button class="filter-btn"        id="ana-btn-t-n"   onclick="setAnaTurnoFilter('Nocturno',this)">Nocturno</button>
+    </div>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Guardia:</span>
+    <select class="filter-select" id="ana-guardia-select" onchange="onAnaFilterChange()"><option value="">Todos</option></select>
+    <div class="filter-sep"></div>
+    <span class="filter-label">Puesto:</span>
+    <select class="filter-select" id="ana-puesto-select" onchange="onAnaFilterChange()" style="min-width:200px"><option value="">Todos</option></select>
+    <span style="font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-left:8px;" id="ana-rec-count"></span>
+  </div>
+  <div style="font-size:10px;color:var(--muted);margin:-12px 0 16px;">El filtro de Puesto no afecta este análisis: una ronda completa debe cubrir los 19 puestos, así que aislar uno solo rompería el cálculo de duración y estado. Sí aplican mes, fecha, turno y guardia.</div>
   <div class="stats" style="margin-bottom:20px">
     <div class="stat ok"><div class="stat-label">Rondas registradas</div><div class="stat-value" id="a-total-rondas">—</div><div class="stat-sub">en el historial completo</div></div>
     <div class="stat blue"><div class="stat-label">Duración promedio</div><div class="stat-value" id="a-dur-prom" style="font-size:22px;padding-top:8px">—</div><div class="stat-sub">minutos por ronda completa</div></div>
     <div class="stat warn"><div class="stat-label">Rondas completas</div><div class="stat-value" id="a-completas">—</div><div class="stat-sub">de las registradas</div></div>
-    <div class="stat red"><div class="stat-label">Rondas con saltos</div><div class="stat-value" id="a-incompletas">—</div><div class="stat-sub">no cubrieron los 23 puestos</div></div>
+    <div class="stat red"><div class="stat-label">Rondas con saltos</div><div class="stat-value" id="a-incompletas">—</div><div class="stat-sub">no cubrieron los 19 puestos</div></div>
   </div>
 
   <div class="two-col">
@@ -528,6 +564,8 @@
     <span class="filter-label">Puesto:</span>
     <select class="filter-select" id="est-puesto-select" onchange="onEstFilterChange()" style="min-width:200px"><option value="">Todos</option></select>
     <span style="font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-left:8px;" id="est-rec-count"></span>
+    <div class="filter-sep"></div>
+    <button class="btn" onclick="exportarEstadisticasPDF()">⬇ Exportar PDF completo</button>
   </div>
 
   <div class="stats stats-4" style="margin-bottom:20px">
@@ -536,10 +574,22 @@
     <div class="stat-mini"><div class="stat-mini-label">Tiempo prom. entre escaneos</div><div class="stat-mini-value" id="e-tiempo-prom">—</div><div class="stat-mini-sub">de un puesto al siguiente</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Puesto más olvidado</div><div class="stat-mini-value" id="e-puesto-olvidado" style="font-size:14px">—</div><div class="stat-mini-sub" id="e-puesto-olvidado-sub">—</div></div>
   </div>
-  <div class="stats stats-3" style="margin-bottom:20px">
+  <div class="stats stats-4" style="margin-bottom:20px">
     <div class="stat-mini"><div class="stat-mini-label">Puestos sin visitas en el período</div><div class="stat-mini-value" id="e-sin-visitas">—</div><div class="stat-mini-sub" id="e-sin-visitas-sub">de 19 puestos</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Días sin ningún rondín</div><div class="stat-mini-value" id="e-dias-sin-rondines">—</div><div class="stat-mini-sub" id="e-dias-sin-rondines-sub">en el período mostrado</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Rondines con hallazgos</div><div class="stat-mini-value" id="e-hallazgos">—</div><div class="stat-mini-sub">notas distintas de "sin novedad"</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Día con más actividad</div><div class="stat-mini-value" id="e-dia-top">—</div><div class="stat-mini-sub" id="e-dia-top-sub">—</div></div>
+  </div>
+
+  <div class="section" style="margin-bottom:16px">
+    <div class="section-header"><span class="section-title">Rondines por día del período</span><span class="section-count" id="e-dias-count">—</span></div>
+    <div style="font-size:10px;color:var(--muted);padding:8px 12px 0;">Objetivo de referencia: 57 escaneos/día (19 puestos × 3 rondas), válido cuando no filtras por guardia ni puesto. Días marcados en rojo tuvieron cero rondines registrados.</div>
+    <div class="log-wrap">
+      <table class="log-table">
+        <thead><tr><th>Fecha</th><th>Día</th><th>Escaneos</th><th>Esperado</th><th>Faltantes</th><th>% Cumplimiento</th></tr></thead>
+        <tbody id="e-dias-body"><tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="two-col-full">
@@ -604,18 +654,9 @@
 <footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
 
 <script>
-// ── CREDENCIALES ──────────────────────────────────────────────────────────────
-// Migrado de Airtable a Google Sheets / Apps Script: GOOGLE_SCRIPT_URL es ahora
-// la única fuente de datos (sirve tanto al dashboard/cards/log como al historial).
 // Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwyhBKSUhK_16tIwYlCFN0U8_cOPCzoO9BoTXHzCKtrzEiT0tK5loCbKyCA21bT-ym5Zw/exec";
-const PASSWORD_CORRECTA = "875223";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqVmTQyUdKT1f1U-CKWbCxDBDEdxKpbByL5LabmVJOXsJZaFBV89M2wwy5GnnEqDB2LA/exec";
 
-// AIRTABLE_TOKEN / BASE_ID / TABLE_ID ya no se usan tras la migración.
-// Se dejan comentados por si se necesita hacer rollback.
-// const AIRTABLE_TOKEN = "";
-// const BASE_ID  = 'appJ5Xh0fe8FJROlO';
-// const TABLE_ID = 'tblCcmPKEkD9myJMn';
 const TARGET   = 57; // 3 rondas x 19 puestos por turno de 24h
 
 const POSTS = [
@@ -682,12 +723,41 @@ function calcularCumplimiento(records) {
 // ── SESIÓN ────────────────────────────────────────────────────────────────────
 const SESSION_KEY = 'uplace_session_v2';
 function checkSession(){return localStorage.getItem(SESSION_KEY)==='active';}
-function doLogin(){
+
+// Validación de contraseña vía JSONP contra el Apps Script (no via fetch()
+// normal, porque doGet() de Apps Script no manda cabeceras CORS). El backend
+// nunca revela la contraseña real, solo responde {ok:true|false}.
+function verificarPasswordBackend_(pass){
+  return new Promise((resolve,reject)=>{
+    const cbName='uplaceLoginCb_'+Date.now();
+    const timeout=setTimeout(()=>{cleanup();reject(new Error('Tiempo de espera agotado.'));},10000);
+    function cleanup(){clearTimeout(timeout);delete window[cbName];if(script.parentNode)script.parentNode.removeChild(script);}
+    window[cbName]=function(res){cleanup();resolve(!!(res&&res.ok));};
+    const script=document.createElement('script');
+    script.src=`${GOOGLE_SCRIPT_URL}?accion=verificarPassword&pass=${encodeURIComponent(pass)}&callback=${cbName}`;
+    script.onerror=()=>{cleanup();reject(new Error('No se pudo conectar con el servidor.'));};
+    document.body.appendChild(script);
+  });
+}
+
+async function doLogin(){
   const val=document.getElementById('login-input').value;
-  if(PASSWORD_CORRECTA&&val!==PASSWORD_CORRECTA){document.getElementById('login-error').style.display='block';return;}
-  localStorage.setItem(SESSION_KEY,'active');
-  document.getElementById('login-overlay').style.display='none';
-  loadData();
+  const errEl=document.getElementById('login-error');
+  const btn=document.querySelector('.login-btn');
+  errEl.style.display='none';
+  if(btn){btn.disabled=true;btn.textContent='Verificando...';}
+  try{
+    const ok=await verificarPasswordBackend_(val);
+    if(!ok){errEl.textContent='Contraseña incorrecta.';errEl.style.display='block';return;}
+    localStorage.setItem(SESSION_KEY,'active');
+    document.getElementById('login-overlay').style.display='none';
+    loadData();
+  }catch(err){
+    errEl.textContent='Error validando la contraseña: '+err.message;
+    errEl.style.display='block';
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Acceder al dashboard';}
+  }
 }
 function doLogout(){if(confirm('¿Cerrar sesión?')){localStorage.removeItem(SESSION_KEY);location.reload();}}
 
@@ -836,50 +906,81 @@ function setLogTurnoFilter(val,el){logFilterTurno=val;document.querySelectorAll(
 function setLogGuardiaFilter(val){logFilterGuardia=val;renderLog();}
 
 // ── RENDER DASHBOARD ──────────────────────────────────────────────────────────
+// Ventana de turno (07:00–07:00) correspondiente al filtro de fecha activo del
+// Dashboard. Antes, la barra de "Cumplimiento" y la alerta de "sin registrar"
+// solo tenían sentido con el filtro "Hoy" (usaban el turno EN VIVO sin importar
+// qué fecha estuviera seleccionada arriba); con "Ayer" o una fecha específica
+// mostraban en su lugar un simple conteo de registros/57 disfrazado del mismo
+// widget, lo cual confundía qué se estaba midiendo. Ahora la ventana de turno
+// se calcula para la fecha filtrada, así el widget siempre refleja el día que
+// realmente estás viendo.
+function getTurnoWindowForDashFilter_(){
+  if(dashFilterDate==='ayer'){
+    const hoyInicio=getTurnoStart();
+    return{start:new Date(hoyInicio.getTime()-864e5),end:hoyInicio};
+  }
+  if(dashFilterDate==='custom'&&dashFilterDateVal){
+    const[y,m,d]=dashFilterDateVal.split('-').map(Number);
+    const start=new Date(y,m-1,d,7,0,0,0);
+    return{start,end:new Date(start.getTime()+864e5)};
+  }
+  const start=getTurnoStart(); // 'hoy' (o fallback si no hay fecha custom aún elegida)
+  return{start,end:new Date(start.getTime()+864e5)};
+}
+
 function renderDashboard(records){
-  const useTurnoLogic=(dashFilterDate==='hoy');
+  const ventana=getTurnoWindowForDashFilter_();
   const baseRecs=records.filter(r=>{
     const f=r.fields;const ts=f.Timestamp||f['Created Time'];
-    if(!isOnDate(ts,dashFilterDate,dashFilterDateVal))return false;
+    if(!ts)return false;
+    const d=new Date(ts);
+    if(!(d>=ventana.start&&d<ventana.end))return false;
     if(dashFilterTurno&&f.Turno!==dashFilterTurno)return false;
     if(dashFilterGuardia&&f.Guardia!==dashFilterGuardia)return false;
     return true;
   });
-  const turnoRecs=records.filter(r=>isInCurrentTurno(r.fields.Timestamp||r.fields['Created Time']));
   const lastScanBase={};
   baseRecs.forEach(r=>{const f=r.fields;const cp=(f.Checkpoint||'').split(' ')[0];const ts=f.Timestamp||f['Created Time'];if(!lastScanBase[cp]||new Date(ts)>new Date(lastScanBase[cp].ts))lastScanBase[cp]={ts};});
 
-  const estado=useTurnoLogic?calcularCumplimiento(turnoRecs):null;
+  const estado=calcularCumplimiento(baseRecs);
 
   const latest=baseRecs[0];const latestTs=latest?(latest.fields.Timestamp||latest.fields['Created Time']):null;
   setText('s-today',baseRecs.length);setText('s-active',Object.keys(lastScanBase).length);
-  setText('s-late',useTurnoLogic&&estado?estado.sinRegistro.length:'—');
+  setText('s-late',estado.sinRegistro.length);
   setText('s-last',fmtTime(latestTs));setText('s-last-post',(latest?.fields?.Checkpoint||'—').replace(/Puesto-\d+\s*/i,''));
 
-  const pct=useTurnoLogic&&estado?Math.min(Math.round((estado.totalCubiertos/TARGET)*100),100):Math.min(Math.round((turnoRecs.length/TARGET)*100),100);
+  const pct=Math.min(Math.round((estado.totalCubiertos/TARGET)*100),100);
   setText('progress-pct',pct+'%');
   const fill=document.getElementById('progress-fill');if(fill){fill.style.width=pct+'%';fill.className='progress-fill'+(pct>=80?'':pct>=50?' warn':' low');}
 
+  // Título dinámico: deja explícito de qué turno se está hablando, para que
+  // nunca parezca "el turno actual" cuando en realidad se filtró otro día.
+  const tituloEl=document.getElementById('progress-title');
+  let etiquetaDia='hoy';
+  if(tituloEl){
+    if(dashFilterDate==='ayer'){tituloEl.textContent='Cumplimiento del turno de ayer (07:00–07:00)';etiquetaDia='ayer';}
+    else if(dashFilterDate==='custom'&&dashFilterDateVal){tituloEl.textContent=`Cumplimiento del turno del ${dashFilterDateVal} (07:00–07:00)`;etiquetaDia=`el ${dashFilterDateVal}`;}
+    else tituloEl.textContent='Cumplimiento del turno actual (07:00–07:00)';
+  }
+
   const banner=document.getElementById('alert-banner');
   if(banner){
-    if(useTurnoLogic&&estado&&(estado.sinRegistro.length>0)){
+    if(estado.sinRegistro.length>0){
       const nombres=estado.sinRegistro.map(id=>{const p=POSTS.find(pp=>pp.id===id);return p?`${id} ${p.name}`:id;}).join(', ');
-      banner.classList.add('show');setText('alert-text',`Sin NINGÚN rondín hoy (${estado.sinRegistro.length}): ${nombres}`);
+      banner.classList.add('show');setText('alert-text',`Sin NINGÚN rondín ${etiquetaDia} (${estado.sinRegistro.length}): ${nombres}`);
     } else banner.classList.remove('show');
   }
 
-  // Posts list — cobertura real por puesto en el turno (0/3, 1-2/3, 3/3)
+  // Posts list — cobertura real por puesto en el turno filtrado (0/3, 1-2/3, 3/3)
   const postsList=document.getElementById('posts-list');
   if(postsList){
     postsList.innerHTML='';
     POSTS.forEach(p=>{
-      let status='pending',timeLabel='—',subLabel=`0/${RONDAS_ESPERADAS_POR_TURNO} hoy`;
-      if(useTurnoLogic&&estado){
-        const c=estado.conteo[p.id];
-        if(c.count===0){status='late';subLabel=`SIN registrar hoy`;}
-        else if(c.count<RONDAS_ESPERADAS_POR_TURNO){status='warn';timeLabel=fmtTime(c.ultimoTs);subLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO} hoy`;}
-        else{status='ok';timeLabel=fmtTime(c.ultimoTs);subLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO} completo`;}
-      }
+      let status='pending',timeLabel='—',subLabel=`0/${RONDAS_ESPERADAS_POR_TURNO}`;
+      const c=estado.conteo[p.id];
+      if(c.count===0){status='late';subLabel=`SIN registrar`;}
+      else if(c.count<RONDAS_ESPERADAS_POR_TURNO){status='warn';timeLabel=fmtTime(c.ultimoTs);subLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO}`;}
+      else{status='ok';timeLabel=fmtTime(c.ultimoTs);subLabel=`${c.count}/${RONDAS_ESPERADAS_POR_TURNO} completo`;}
       const el=document.createElement('div');el.className='post-item';
       el.innerHTML=`<div class="post-dot ${status}"></div><div class="post-info"><div class="post-id">${p.id} · ${p.level}</div><div class="post-name">${p.name}</div></div><div class="post-time ${status}">${timeLabel}<br><span style="font-size:9px;color:var(--muted)">${subLabel}</span></div><div class="pill ${status}">${badgeLabel(status)}</div>`;
       postsList.appendChild(el);
@@ -1037,6 +1138,7 @@ async function loadHistorial(){
     histData=await fetchHistorial();histLoaded=true;
     buildHistMonthSelector();buildHistGuardiaSelector();buildHistPuestoSelector();
     buildEstMonthSelector();buildEstGuardiaSelector();buildEstPuestoSelector();
+    buildAnaMonthSelector();buildAnaGuardiaSelector();buildAnaPuestoSelector();
     renderHistorial();
     renderAnalisisRondas();
     renderEstadisticas();
@@ -1187,9 +1289,83 @@ function renderHistorial(){
 
 // ══════════════════════════════════════════════════════════════════════════
 // ANÁLISIS DE RONDAS — duración por ronda + comparativo por guardia
-// Usa histData completo (todo el historial), no solo el turno actual.
+// Usa histData con los mismos filtros de mes/fecha/turno/guardia disponibles
+// en las demás pestañas, para poder comparar (ej. Diurno vs Nocturno, mes
+// contra mes, guardia contra guardia). El filtro de Puesto se ofrece por
+// consistencia visual, pero no afecta el cálculo de rondas (ver nota en UI):
+// una ronda completa necesariamente cubre los 19 puestos, así que filtrar a
+// uno solo rompería el cálculo de duración/estado de la ronda.
 // ══════════════════════════════════════════════════════════════════════════
 let histFilteredCache=[];
+let anaFilterMode='todos',anaFilterFrom='',anaFilterTo='';
+let anaFilterTurno='',anaFilterGuardia='',anaFilterPuesto='';
+
+function buildAnaMonthSelector(){
+  const sel=document.getElementById('ana-month-select');if(!sel)return;
+  const keys=[...new Set(histData.map(r=>monthKey(r._date)).filter(Boolean))];
+  keys.sort((a,b)=>{const p=s=>{const[m,y]=s.split(' ');return new Date(parseInt(y),MESES_NOMBRES.indexOf(m));};return p(b)-p(a);});
+  sel.innerHTML='';if(keys.length===0){sel.innerHTML='<option value="">Sin datos</option>';return;}
+  sel.innerHTML='<option value="">Todos los meses</option>';
+  keys.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);});
+}
+
+function buildAnaGuardiaSelector(){
+  const sel=document.getElementById('ana-guardia-select');if(!sel)return;
+  const gs=[...new Set(histData.map(r=>r.guardia).filter(g=>g&&g!=='—'))].sort();
+  sel.innerHTML='<option value="">Todos</option>';
+  gs.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;sel.appendChild(o);});
+}
+
+function buildAnaPuestoSelector(){
+  const sel=document.getElementById('ana-puesto-select');if(!sel)return;
+  const idsEnDatos=new Set(histData.map(r=>r.checkpoint.split(' ')[0]).filter(Boolean));
+  sel.innerHTML='<option value="">Todos</option>';
+  POSTS.forEach(p=>{
+    if(idsEnDatos.has(p.id)){
+      const o=document.createElement('option');o.value=p.id;o.textContent=`${p.id} ${p.name} (${p.level})`;sel.appendChild(o);
+    }
+  });
+  idsEnDatos.forEach(id=>{
+    if(!POSTS.find(p=>p.id===id)){const o=document.createElement('option');o.value=id;o.textContent=id;sel.appendChild(o);}
+  });
+}
+
+function setAnaDateFilter(val,el){
+  anaFilterMode=val;
+  document.querySelectorAll('#ana-btn-hoy,#ana-btn-ayer,#ana-btn-todos,#ana-btn-custom').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const show=val==='custom';
+  ['ana-date-from','ana-date-to','ana-date-sep'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=show?'inline-block':'none';});
+  renderAnalisisRondas();
+}
+
+function setAnaTurnoFilter(val,el){
+  anaFilterTurno=val;
+  document.querySelectorAll('#ana-btn-t-all,#ana-btn-t-d,#ana-btn-t-n').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');renderAnalisisRondas();
+}
+
+function onAnaFilterChange(){
+  anaFilterGuardia=document.getElementById('ana-guardia-select').value;
+  anaFilterPuesto=document.getElementById('ana-puesto-select').value;
+  anaFilterFrom=document.getElementById('ana-date-from').value;
+  anaFilterTo=document.getElementById('ana-date-to').value;
+  renderAnalisisRondas();
+}
+
+function filtrarParaAnalisis(){
+  const selMes=document.getElementById('ana-month-select');
+  const selectedMonth=selMes?selMes.value:'';
+  // El filtro de puesto se ignora aquí a propósito (ver nota junto a los filtros
+  // de esta pestaña): rompe la reconstrucción de rondas completas.
+  return histData.filter(r=>{
+    if(selectedMonth&&monthKey(r._date)!==selectedMonth)return false;
+    if(!matchesQuickDate(r._date,anaFilterMode,anaFilterFrom,anaFilterTo))return false;
+    if(anaFilterTurno&&r.turno!==anaFilterTurno)return false;
+    if(anaFilterGuardia&&r.guardia!==anaFilterGuardia)return false;
+    return true;
+  });
+}
 
 function turnoKeyFromDate_(d){
   const dd=new Date(d);
@@ -1198,9 +1374,9 @@ function turnoKeyFromDate_(d){
   return dd.toDateString();
 }
 
-function calcularRondasHistoricas(){
+function calcularRondasHistoricas(records){
   const porTurno={};
-  histData.forEach(r=>{
+  records.forEach(r=>{
     if(!r._date)return;
     const key=turnoKeyFromDate_(r._date);
     if(!porTurno[key])porTurno[key]=[];
@@ -1251,7 +1427,10 @@ function calcularComparativoGuardias(rondas){
 }
 
 function renderAnalisisRondas(){
-  const rondas=calcularRondasHistoricas();
+  const registrosFiltrados=filtrarParaAnalisis();
+  setText('ana-rec-count',`${registrosFiltrados.length} registros`);
+
+  const rondas=calcularRondasHistoricas(registrosFiltrados);
   const completas=rondas.filter(r=>r.completa);
   const incompletas=rondas.length-completas.length;
   const durProm=completas.length?Math.round(completas.reduce((a,b)=>a+b.duracionMin,0)/completas.length):0;
@@ -1361,7 +1540,69 @@ function exportarHistorialPDF(){
   ventana.document.close();
   ventana.focus();
   setTimeout(()=>ventana.print(),300);
-}// ══════════════════════════════════════════════════════════════════════════
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// EXPORT ESTADÍSTICAS — clona el panel completo (tarjetas, barras, tablas,
+// heatmap) ya renderizado tal como se ve en pantalla, y abre el diálogo de
+// impresión del navegador para "Guardar como PDF". No usa librerías externas.
+// ══════════════════════════════════════════════════════════════════════════
+function obtenerEstilosDocumento(){
+  return Array.from(document.querySelectorAll('style')).map(s=>s.textContent).join('\n');
+}
+
+function exportarEstadisticasPDF(){
+  const panel=document.getElementById('panel-estadisticas');
+  if(!panel){alert('No se encontró el panel de Estadísticas.');return;}
+
+  const mesSel=document.getElementById('est-month-select');
+  const puestoSel=document.getElementById('est-puesto-select');
+  const mesLabel=mesSel&&mesSel.value?mesSel.options[mesSel.selectedIndex].text:'Todos los meses';
+  const puestoLabel=puestoSel&&puestoSel.value?puestoSel.options[puestoSel.selectedIndex].text:'Todos los puestos';
+  const turnoLabel=estFilterTurno||'Todos';
+  const guardiaLabel=estFilterGuardia||'Todos';
+  let fechaLabel='Todos los registros';
+  if(estFilterMode==='hoy')fechaLabel='Hoy';
+  else if(estFilterMode==='ayer')fechaLabel='Ayer';
+  else if(estFilterMode==='custom')fechaLabel=`${estFilterFrom||'…'} a ${estFilterTo||'…'}`;
+
+  const clon=panel.cloneNode(true);
+  const filtros=clon.querySelector('.filters-bar');
+  if(filtros)filtros.remove();
+  // Quitar restricciones de scroll interno para que se vea todo, sin recortes
+  clon.querySelectorAll('[style*="overflow-y"]').forEach(el=>{
+    el.style.maxHeight='none';el.style.overflow='visible';
+  });
+
+  const ventana=window.open('','_blank');
+  ventana.document.write(`
+    <html><head><title>Estadísticas — UPLACE Torre 1</title>
+    <style>
+      ${obtenerEstilosDocumento()}
+      body{background:var(--bg);color:var(--text);padding:24px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      .export-header{margin-bottom:20px;}
+      .export-header h1{font-family:var(--mono);color:var(--accent);font-size:18px;margin-bottom:6px;}
+      .export-header p{font-family:var(--mono);font-size:11px;color:var(--muted);margin:2px 0;}
+      .two-col-full{grid-template-columns:1fr !important;}
+      .section{page-break-inside:avoid;margin-bottom:16px;}
+      .log-wrap{overflow-x:visible !important;}
+      #e-heatmap-table{font-size:8px;}
+      @page{size:landscape;margin:12mm;}
+    </style></head><body>
+      <div class="export-header">
+        <h1>UPLACE Periférico Torre 1 — Estadísticas de Rondines</h1>
+        <p>Generado: ${new Date().toLocaleString('es-MX')}</p>
+        <p>Mes: ${mesLabel} · Fecha: ${fechaLabel} · Turno: ${turnoLabel} · Guardia: ${guardiaLabel} · Puesto: ${puestoLabel}</p>
+      </div>
+      ${clon.innerHTML}
+    </body></html>
+  `);
+  ventana.document.close();
+  ventana.focus();
+  setTimeout(()=>ventana.print(),500);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // ESTADÍSTICAS DE GUARDIAS — ranking, horarios, ritmo entre escaneos
 // Usa histData completo (todo el historial archivado + mes actual), ya
 // filtrado a solo Guardia (ver fetchHistorial).
@@ -1578,9 +1819,116 @@ function calcularHeatmapPuestoHora(records){
   return matriz;
 }
 
+// ── Rondines por día del período (incluye días en cero) ───────────────────
+// A diferencia del resto de las agregaciones (que solo iteran sobre fechas
+// que ya tienen al menos un registro en histData), aquí construimos la lista
+// completa de días del período seleccionado y llenamos con 0 los que no
+// tengan ningún escaneo — así un hueco como "24-27 de agosto sin rondines"
+// aparece explícitamente en vez de simplemente no existir en la tabla.
+function obtenerRangoDiasDelPeriodo(){
+  const selMes=document.getElementById('est-month-select');
+  const mesVal=selMes?selMes.value:'';
+  let inicio,fin;
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+
+  if(mesVal){
+    const[mesNombre,anioStr]=mesVal.split(' ');
+    const anio=parseInt(anioStr,10);
+    const mesIdx=MESES_NOMBRES.indexOf(mesNombre);
+    inicio=new Date(anio,mesIdx,1);
+    fin=new Date(anio,mesIdx+1,0);
+    if(fin>hoy)fin=hoy;
+  } else if(estFilterMode==='custom'&&estFilterFrom){
+    const[fy,fm,fd]=estFilterFrom.split('-').map(Number);
+    inicio=new Date(fy,fm-1,fd);
+    if(estFilterTo){const[ty,tm,td]=estFilterTo.split('-').map(Number);fin=new Date(ty,tm-1,td);}
+    else fin=hoy;
+  } else if(estFilterMode==='hoy'){
+    inicio=fin=hoy;
+  } else if(estFilterMode==='ayer'){
+    const a=new Date(hoy);a.setDate(a.getDate()-1);
+    inicio=fin=a;
+  } else {
+    const fechas=histData.map(r=>r._date).filter(Boolean);
+    if(fechas.length===0)return[];
+    inicio=new Date(Math.min(...fechas));inicio.setHours(0,0,0,0);
+    fin=new Date(Math.max(...fechas));fin.setHours(0,0,0,0);
+  }
+
+  const dias=[];
+  const cur=new Date(inicio);
+  while(cur<=fin){dias.push(new Date(cur));cur.setDate(cur.getDate()+1);}
+  return dias;
+}
+
+function calcularRondinesPorDia(){
+  const dias=obtenerRangoDiasDelPeriodo();
+  if(dias.length===0)return{filas:[],diasSinRondines:0};
+
+  // Respeta turno/guardia; el objetivo diario (57) solo es válido sin esos
+  // filtros salvo el caso de puesto (target=3), así que ajustamos qué
+  // columnas mostrar en vez de inventar un objetivo prorrateado.
+  const sinFiltrosDeCantidad=!estFilterTurno&&!estFilterGuardia&&!estFilterPuesto;
+  const objetivoDia=estFilterPuesto?RONDAS_ESPERADAS_POR_TURNO:(sinFiltrosDeCantidad?TARGET:null);
+
+  const registrosFiltrados=histData.filter(r=>{
+    if(estFilterTurno&&r.turno!==estFilterTurno)return false;
+    if(estFilterGuardia&&r.guardia!==estFilterGuardia)return false;
+    if(estFilterPuesto&&r.checkpoint.split(' ')[0]!==estFilterPuesto)return false;
+    return true;
+  });
+
+  const conteoPorDia={};
+  registrosFiltrados.forEach(r=>{
+    if(!r._date)return;
+    const key=turnoDayDate_(r._date).getTime();
+    conteoPorDia[key]=(conteoPorDia[key]||0)+1;
+  });
+
+  const DIAS_SEMANA=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  let diasSinRondines=0;
+  const filas=dias.map(d=>{
+    const total=conteoPorDia[d.getTime()]||0;
+    if(total===0)diasSinRondines++;
+    const faltantes=objetivoDia!==null?Math.max(objetivoDia-total,0):null;
+    const pct=objetivoDia!==null?Math.round((total/objetivoDia)*100):null;
+    return{fecha:d,diaSemana:DIAS_SEMANA[d.getDay()],total,faltantes,pct};
+  }).sort((a,b)=>b.fecha-a.fecha);
+
+  return{filas,diasSinRondines,objetivoDia};
+}
+
+function renderRondinesPorDia(){
+  const{filas,diasSinRondines,objetivoDia}=calcularRondinesPorDia();
+  setText('e-dias-count',`${filas.length} días`);
+  setText('e-dias-sin-rondines',diasSinRondines);
+
+  const body=document.getElementById('e-dias-body');
+  if(!body)return;
+  body.innerHTML='';
+  if(filas.length===0){
+    body.innerHTML='<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</td></tr>';
+    return;
+  }
+  filas.forEach(f=>{
+    const tr=document.createElement('tr');
+    const cero=f.total===0;
+    if(cero)tr.style.background='rgba(240,79,79,.08)';
+    const fechaStr=f.fecha.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
+    const totalCell=cero?`<span style="color:var(--danger);font-weight:600">${f.total}</span>`:f.total;
+    const esperadoCell=objetivoDia!==null?objetivoDia:'—';
+    const faltantesCell=f.faltantes!==null?(f.faltantes>0?`<span style="color:${cero?'var(--danger)':'var(--warn)'}">${f.faltantes}</span>`:'0'):'—';
+    const pctCell=f.pct!==null?`${f.pct}%`:'—';
+    tr.innerHTML=`<td style="color:var(--muted)">${fechaStr}</td><td>${f.diaSemana}</td><td>${totalCell}</td><td style="color:var(--muted)">${esperadoCell}</td><td>${faltantesCell}</td><td>${pctCell}</td>`;
+    body.appendChild(tr);
+  });
+}
+
 function renderEstadisticas(){
   const records=filtrarParaEstadisticas();
   setText('est-rec-count',`${records.length} registros`);
+
+  renderRondinesPorDia();
 
   const porGuardia=calcularEstadisticasGuardias(records);
   const gaps=calcularTiempoEntreEscaneos(records);
@@ -1625,16 +1973,19 @@ function renderEstadisticas(){
   });
 
   // Histograma por hora del día (agregando todos los guardias)
+  // Se reserva ~20% de la altura del track para el número visible encima de
+  // cada barra, así queda legible también en el PDF exportado (no solo en
+  // el tooltip del navegador).
   const horasTotal=new Array(24).fill(0);
   Object.values(porGuardia).forEach(g=>g.horas.forEach((c,h)=>horasTotal[h]+=c));
   const maxHora=Math.max(...horasTotal,1);
   const histEl=document.getElementById('e-hour-histogram');
   histEl.innerHTML='';
   horasTotal.forEach((c,h)=>{
-    const alturaPct=Math.round((c/maxHora)*100);
+    const alturaPct=Math.round((c/maxHora)*80);
     const wrap=document.createElement('div');wrap.className='hour-bar-wrap';
     wrap.title=`${h}:00 — ${c} escaneos`;
-    wrap.innerHTML=`<div class="hour-bar" style="height:${Math.max(alturaPct,2)}%"></div>${h%3===0?`<div class="hour-label">${h}h</div>`:'<div class="hour-label"></div>'}`;
+    wrap.innerHTML=`<div class="hour-bar-count">${c}</div><div class="hour-bar" style="height:${Math.max(alturaPct,2)}%"></div>${h%3===0?`<div class="hour-label">${h}h</div>`:'<div class="hour-label"></div>'}`;
     histEl.appendChild(wrap);
   });
 
@@ -1711,10 +2062,10 @@ function renderEstadisticas(){
   const dayHistEl=document.getElementById('e-day-histogram');
   dayHistEl.innerHTML='';
   DIAS.forEach((nombre,i)=>{
-    const alturaPct=Math.round((porDia[i]/maxDia)*100);
+    const alturaPct=Math.round((porDia[i]/maxDia)*80);
     const wrap=document.createElement('div');wrap.className='hour-bar-wrap';
     wrap.title=`${nombre} — ${porDia[i]} escaneos`;
-    wrap.innerHTML=`<div class="hour-bar" style="height:${Math.max(alturaPct,2)}%"></div><div class="hour-label">${nombre}</div>`;
+    wrap.innerHTML=`<div class="hour-bar-count">${porDia[i]}</div><div class="hour-bar" style="height:${Math.max(alturaPct,2)}%"></div><div class="hour-label">${nombre}</div>`;
     dayHistEl.appendChild(wrap);
   });
 
@@ -1754,17 +2105,18 @@ function renderEstadisticas(){
     });
   }
 
-  // Mapa de calor puesto × hora
+  // Mapa de calor puesto × hora — incluye el nombre del puesto, no solo el ID
   const heatmap=calcularHeatmapPuestoHora(records);
   const maxCelda=Math.max(...Object.values(heatmap).flat(),1);
   setText('e-heatmap-count',`${ALL_POST_IDS.length} puestos × 24h`);
   const heatTable=document.getElementById('e-heatmap-table');
-  let heatHTML='<thead><tr><th style="position:sticky;left:0;background:var(--surface);padding:4px 8px;text-align:left;">Puesto</th>';
+  let heatHTML='<thead><tr><th style="position:sticky;left:0;background:var(--surface);padding:4px 8px;text-align:left;min-width:180px;">Puesto</th>';
   for(let h=0;h<24;h++)heatHTML+=`<th style="padding:2px 4px;color:var(--muted);font-weight:400;">${h}</th>`;
   heatHTML+='</tr></thead><tbody>';
   ALL_POST_IDS.forEach(id=>{
     const p=POSTS.find(pp=>pp.id===id);
-    heatHTML+=`<tr><td style="position:sticky;left:0;background:var(--bg);padding:4px 8px;color:var(--text);">${id}</td>`;
+    const etiqueta=p?`${id} · ${p.name}`:id;
+    heatHTML+=`<tr><td style="position:sticky;left:0;background:var(--bg);padding:4px 8px;color:var(--text);min-width:180px;">${etiqueta}</td>`;
     heatmap[id].forEach(c=>{
       const alpha=c===0?0:Math.max(0.15,c/maxCelda);
       heatHTML+=`<td title="${p?p.name:id} — ${c} escaneos" style="width:20px;height:20px;background:rgba(45,212,160,${alpha});border:1px solid var(--bg);"></td>`;
