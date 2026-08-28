@@ -88,6 +88,7 @@
   .two-col-full{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;}
   .stats-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
   .stats-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .stats-2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
   .section{background:var(--surface);border:1px solid var(--border);overflow:hidden;}
   .section-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;}
   .section-title{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
@@ -180,7 +181,7 @@
        (display:none). Eso escondía tablas como "Últimos escaneos" sin avisar.
        Ahora .two-col ya cae a una sola columna a los 900px (ver arriba), así
        que aquí solo se apila verticalmente: se puede seguir viendo con scroll. */
-    .stats-4,.stats-3{grid-template-columns:repeat(2,1fr);gap:8px;}
+    .stats-4,.stats-3,.stats-2{grid-template-columns:repeat(2,1fr);gap:8px;}
     .stat-mini{padding:10px;}.stat-mini-value{font-size:16px;}
     .bar-label{width:90px;font-size:11px;}
   }
@@ -569,6 +570,12 @@
   </div>
 
   <div class="stats stats-4" style="margin-bottom:20px">
+    <div class="stat-mini"><div class="stat-mini-label">Registros totales</div><div class="stat-mini-value" id="e-total-registros">—</div><div class="stat-mini-sub" id="e-total-registros-sub">en el período filtrado</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Total pendientes</div><div class="stat-mini-value" id="e-total-pendientes">—</div><div class="stat-mini-sub" id="e-total-pendientes-sub">escaneos faltantes vs. objetivo</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Promedio diario</div><div class="stat-mini-value" id="e-promedio-diario">—</div><div class="stat-mini-sub">escaneos/día</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Guardias activos</div><div class="stat-mini-value" id="e-guardias-activos">—</div><div class="stat-mini-sub">en el período filtrado</div></div>
+  </div>
+  <div class="stats stats-4" style="margin-bottom:20px">
     <div class="stat-mini"><div class="stat-mini-label">Guardia más activo</div><div class="stat-mini-value" id="e-top-guardia">—</div><div class="stat-mini-sub" id="e-top-guardia-sub">—</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Guardia menos activo</div><div class="stat-mini-value" id="e-bottom-guardia">—</div><div class="stat-mini-sub" id="e-bottom-guardia-sub">—</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Tiempo prom. entre escaneos</div><div class="stat-mini-value" id="e-tiempo-prom">—</div><div class="stat-mini-sub">de un puesto al siguiente</div></div>
@@ -579,6 +586,10 @@
     <div class="stat-mini"><div class="stat-mini-label">Días sin ningún rondín</div><div class="stat-mini-value" id="e-dias-sin-rondines">—</div><div class="stat-mini-sub" id="e-dias-sin-rondines-sub">en el período mostrado</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Rondines con hallazgos</div><div class="stat-mini-value" id="e-hallazgos">—</div><div class="stat-mini-sub">notas distintas de "sin novedad"</div></div>
     <div class="stat-mini"><div class="stat-mini-label">Día con más actividad</div><div class="stat-mini-value" id="e-dia-top">—</div><div class="stat-mini-sub" id="e-dia-top-sub">—</div></div>
+  </div>
+  <div class="stats stats-2" style="margin-bottom:20px">
+    <div class="stat-mini"><div class="stat-mini-label">Puestos cubiertos</div><div class="stat-mini-value" id="e-puestos-cubiertos">—</div><div class="stat-mini-sub" id="e-puestos-cubiertos-sub">de 19 puestos</div></div>
+    <div class="stat-mini"><div class="stat-mini-label">Racha activa más larga ahora mismo</div><div class="stat-mini-value" id="e-racha-activa" style="font-size:16px">—</div><div class="stat-mini-sub" id="e-racha-activa-sub">puesto que más necesita atención hoy</div></div>
   </div>
 
   <div class="section" style="margin-bottom:16px">
@@ -654,9 +665,8 @@
 <footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
 
 <script>
-// Pegar aquí la URL del deployment /exec del Code.gs del agente de rondines.
+// ── CREDENCIALES ──────────────────────────────────────────────────────────────
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqVmTQyUdKT1f1U-CKWbCxDBDEdxKpbByL5LabmVJOXsJZaFBV89M2wwy5GnnEqDB2LA/exec";
-
 const TARGET   = 57; // 3 rondas x 19 puestos por turno de 24h
 
 const POSTS = [
@@ -1903,6 +1913,19 @@ function renderRondinesPorDia(){
   setText('e-dias-count',`${filas.length} días`);
   setText('e-dias-sin-rondines',diasSinRondines);
 
+  // Total de pendientes del período: suma de "faltantes" de cada día, usando
+  // el mismo objetivoDia (57 sin filtros, 3 si se filtra a un solo puesto,
+  // null —no calculable— si se filtra por turno o guardia). Se muestra
+  // arriba en la tarjeta "Total pendientes".
+  if(objetivoDia===null){
+    setText('e-total-pendientes','—');
+    setText('e-total-pendientes-sub','no aplica con este filtro (turno/guardia)');
+  } else {
+    const totalPendientes=filas.reduce((acc,f)=>acc+(f.faltantes||0),0);
+    setText('e-total-pendientes',totalPendientes);
+    setText('e-total-pendientes-sub',`de ${filas.length*objetivoDia} esperados en el período`);
+  }
+
   const body=document.getElementById('e-dias-body');
   if(!body)return;
   body.innerHTML='';
@@ -1928,14 +1951,22 @@ function renderEstadisticas(){
   const records=filtrarParaEstadisticas();
   setText('est-rec-count',`${records.length} registros`);
 
+  // Tarjetas resumen del período (arriba de todo): totales simples, antes de
+  // entrar a los derivados más específicos (ranking, ritmo, heatmap, etc.)
+  setText('e-total-registros',records.length);
+  const diasConDatos=new Set(records.map(r=>r._date?turnoDayDate_(r._date).getTime():null).filter(Boolean));
+  const promedioDiario=diasConDatos.size>0?Math.round(records.length/diasConDatos.size):0;
+  setText('e-promedio-diario',promedioDiario);
+
   renderRondinesPorDia();
 
   const porGuardia=calcularEstadisticasGuardias(records);
   const gaps=calcularTiempoEntreEscaneos(records);
   const guardiasArr=Object.entries(porGuardia).sort((a,b)=>b[1].total-a[1].total);
+  setText('e-guardias-activos',guardiasArr.length);
 
   if(guardiasArr.length===0){
-    ['e-top-guardia','e-bottom-guardia','e-sin-visitas','e-hallazgos','e-dia-top'].forEach(id=>setText(id,'—'));
+    ['e-top-guardia','e-bottom-guardia','e-sin-visitas','e-hallazgos','e-dia-top','e-puestos-cubiertos','e-racha-activa'].forEach(id=>setText(id,'—'));
     setText('e-tiempo-prom','—');setText('e-puesto-olvidado','—');
     document.getElementById('e-ranking-guardias').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</div>';
     document.getElementById('e-ritmo-body').innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin datos para este filtro</td></tr>';
@@ -2039,6 +2070,8 @@ function renderEstadisticas(){
   const sinVisitas=puestosArr.filter(p=>p.count===0);
   setText('e-sin-visitas',sinVisitas.length);
   setText('e-sin-visitas-sub',sinVisitas.length?sinVisitas.map(p=>p.id).join(', '):`de ${ALL_POST_IDS.length} puestos`);
+  setText('e-puestos-cubiertos',ALL_POST_IDS.length-sinVisitas.length);
+  setText('e-puestos-cubiertos-sub',`de ${ALL_POST_IDS.length} puestos`);
 
   // % de rondines con hallazgos reales (nota distinta de genéricos tipo "sin novedad")
   const genericas=['sin novedad','sin novedades','—','sin novedades que reportar','sin novedades todo parece funcionar con normalidad.'];
@@ -2072,6 +2105,21 @@ function renderEstadisticas(){
   // Rachas sin visita por puesto
   const rachas=calcularRachasSinVisita(records);
   setText('e-rachas-count',`${rachas.length} puestos con huecos`);
+
+  // "Racha activa más larga" = el hueco que sigue abierto AHORA MISMO, no el
+  // peor hueco histórico (eso ya lo muestra "Puesto más olvidado" arriba).
+  // Es la señal más accionable: qué puesto necesita revisión hoy.
+  const rachasActivas=rachas.filter(r=>r.rachaFinal>0).sort((a,b)=>b.rachaFinal-a.rachaFinal);
+  if(rachasActivas.length>0){
+    const peorActiva=rachasActivas[0];
+    const p=POSTS.find(pp=>pp.id===peorActiva.id);
+    setText('e-racha-activa',p?`${peorActiva.id} ${p.name}`:peorActiva.id);
+    setText('e-racha-activa-sub',`${peorActiva.rachaFinal} día(s) consecutivos sin visita`);
+  } else {
+    setText('e-racha-activa','Ninguna');
+    setText('e-racha-activa-sub','todos los puestos tienen visitas recientes');
+  }
+
   const rachasBody=document.getElementById('e-rachas-body');
   rachasBody.innerHTML='';
   if(rachas.length===0){
