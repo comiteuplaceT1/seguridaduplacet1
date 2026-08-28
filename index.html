@@ -661,11 +661,11 @@
   </div>
 </div>
 
-<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min · Diseñado Por Pablo Cueto Para la Comunidad Uplace</footer>
+<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
 
 <script>
 // ── CREDENCIALES ──────────────────────────────────────────────────────────────
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzqVmTQyUdKT1f1U-CKWbCxDBDEdxKpbByL5LabmVJOXsJZaFBV89M2wwy5GnnEqDB2LA/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw58vtg45Kus_PxiOHZFxeyvgXCbya1tV6W94sXxOzb_6MhgwwWdf-h_ydViWWT3G5z/exec";
 
 const TARGET   = 57; // 3 rondas x 19 puestos por turno de 24h
 
@@ -693,12 +693,6 @@ const POSTS = [
 // Mapa id→nombre completo para dropdown
 const POST_LABELS = {};
 POSTS.forEach(p => { POST_LABELS[p.id] = `${p.id} ${p.name} (${p.level})`; });
-
-// ── COBERTURA POR PUESTO (reemplaza el modelo de "rondas por orden") ──────
-// Cuenta cuántas veces se escaneó cada puesto en el período dado, SIN asumir
-// que los guardias siguen el orden 1→N. En la práctica no lo hacen siempre,
-// y ese supuesto generaba falsos "0/3" y listas de "saltados" enormes que no
-// reflejaban la realidad. Contar visitas reales por puesto es más honesto.
 const ALL_POST_IDS = POSTS.map(p => p.id);
 const RONDAS_ESPERADAS_POR_TURNO = 3;
 
@@ -734,9 +728,6 @@ function calcularCumplimiento(records) {
 const SESSION_KEY = 'uplace_session_v2';
 function checkSession(){return localStorage.getItem(SESSION_KEY)==='active';}
 
-// Validación de contraseña vía JSONP contra el Apps Script (no via fetch()
-// normal, porque doGet() de Apps Script no manda cabeceras CORS). El backend
-// nunca revela la contraseña real, solo responde {ok:true|false}.
 function verificarPasswordBackend_(pass){
   return new Promise((resolve,reject)=>{
     const cbName='uplaceLoginCb_'+Date.now();
@@ -853,7 +844,7 @@ let allRecords=[];
 
 async function fetchAllRows_(){
   if(!GOOGLE_SCRIPT_URL)throw new Error('GOOGLE_SCRIPT_URL no configurado.');
-  const res=await fetch(GOOGLE_SCRIPT_URL);
+  const res=await fetch(`${GOOGLE_SCRIPT_URL}?accion=reciente`);
   if(!res.ok)throw new Error(`Error ${res.status}: ${res.statusText}`);
   const json=await res.json();
   const rows=Array.isArray(json)?json:json.data||[];
@@ -872,18 +863,17 @@ function mapRowToFields_(row){
   }};
 }
 
-// Se mapea a la misma forma {fields:{...}} que Airtable, para no tocar
-// el resto del dashboard (renderDashboard, renderCards, renderLog, filtros, sort).
-// Solo incluye registros de Guardia — administración vive aparte, ver fetchAdminRecords().
 async function fetchRecords(){
   const sorted=await fetchAllRows_();
-  return sorted.filter(r=>(r['Rol']||'Guardia')==='Guardia').slice(0,100).map(mapRowToFields_);
+  return sorted.filter(r=>(r['Rol']||'Guardia')==='Guardia').map(mapRowToFields_);
 }
 
 // Registros de administración, completamente separados de la vista de guardias.
+// Mismo motivo que arriba: sin slice(0,100), para que los filtros de fecha
+// funcionen con cualquier día del mes en curso, no solo con hoy.
 async function fetchAdminRecords(){
   const sorted=await fetchAllRows_();
-  return sorted.filter(r=>r['Rol']==='Administracion').slice(0,100).map(mapRowToFields_);
+  return sorted.filter(r=>r['Rol']==='Administracion').map(mapRowToFields_);
 }
 
 function populateGuardias(records){
@@ -916,14 +906,6 @@ function setLogTurnoFilter(val,el){logFilterTurno=val;document.querySelectorAll(
 function setLogGuardiaFilter(val){logFilterGuardia=val;renderLog();}
 
 // ── RENDER DASHBOARD ──────────────────────────────────────────────────────────
-// Ventana de turno (07:00–07:00) correspondiente al filtro de fecha activo del
-// Dashboard. Antes, la barra de "Cumplimiento" y la alerta de "sin registrar"
-// solo tenían sentido con el filtro "Hoy" (usaban el turno EN VIVO sin importar
-// qué fecha estuviera seleccionada arriba); con "Ayer" o una fecha específica
-// mostraban en su lugar un simple conteo de registros/57 disfrazado del mismo
-// widget, lo cual confundía qué se estaba midiendo. Ahora la ventana de turno
-// se calcula para la fecha filtrada, así el widget siempre refleja el día que
-// realmente estás viendo.
 function getTurnoWindowForDashFilter_(){
   if(dashFilterDate==='ayer'){
     const hoyInicio=getTurnoStart();
@@ -1297,15 +1279,6 @@ function renderHistorial(){
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// ANÁLISIS DE RONDAS — duración por ronda + comparativo por guardia
-// Usa histData con los mismos filtros de mes/fecha/turno/guardia disponibles
-// en las demás pestañas, para poder comparar (ej. Diurno vs Nocturno, mes
-// contra mes, guardia contra guardia). El filtro de Puesto se ofrece por
-// consistencia visual, pero no afecta el cálculo de rondas (ver nota en UI):
-// una ronda completa necesariamente cubre los 19 puestos, así que filtrar a
-// uno solo rompería el cálculo de duración/estado de la ronda.
-// ══════════════════════════════════════════════════════════════════════════
 let histFilteredCache=[];
 let anaFilterMode='todos',anaFilterFrom='',anaFilterTo='';
 let anaFilterTurno='',anaFilterGuardia='',anaFilterPuesto='';
@@ -1526,8 +1499,6 @@ function renderAdmin(){
 }
 
 function exportarHistorialPDF(){
-  // Usa el diálogo de impresión del navegador ("Guardar como PDF") sobre la
-  // tabla actualmente filtrada — sin dependencias externas.
   if(!histFilteredCache.length){alert('No hay registros para exportar con los filtros actuales.');return;}
   const filas=histFilteredCache.map(r=>`<tr><td>${r.num}</td><td>${r.checkpoint}</td><td>${r.timestamp}</td><td>${r.turno}</td><td>${r.guardia}</td><td>${r.notas}</td></tr>`).join('');
   const ventana=window.open('','_blank');
@@ -1612,17 +1583,10 @@ function exportarEstadisticasPDF(){
   setTimeout(()=>ventana.print(),500);
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// ESTADÍSTICAS DE GUARDIAS — ranking, horarios, ritmo entre escaneos
-// Usa histData completo (todo el historial archivado + mes actual), ya
-// filtrado a solo Guardia (ver fetchHistorial).
-// ══════════════════════════════════════════════════════════════════════════
 // ── Filtros de Estadísticas (mismo patrón que Historial, + Hoy/Ayer) ──────
 let estFilterMode='todos',estFilterFrom='',estFilterTo='';
 let estFilterTurno='',estFilterGuardia='',estFilterPuesto='';
 
-// Igual que isOnDate() pero opera sobre un objeto Date ya parseado (_date),
-// que es lo que trae histData en vez de un string de timestamp crudo.
 function matchesQuickDate(d,mode,fromVal,toVal){
   if(mode==='todos')return true;
   if(!d)return false;
@@ -1759,9 +1723,6 @@ function turnoDayDate_(d){
   return dd;
 }
 
-// Racha de días consecutivos SIN visita, por puesto. "Racha máxima" = la peor
-// racha que ha tenido ese puesto en todo el período filtrado. "Racha actual"
-// = cuántos días lleva sin visita justo al final del período (si sigue activa).
 function calcularRachasSinVisita(records){
   const diasSet=new Set();
   records.forEach(r=>{if(r._date)diasSet.add(turnoDayDate_(r._date).getTime());});
@@ -1830,11 +1791,6 @@ function calcularHeatmapPuestoHora(records){
 }
 
 // ── Rondines por día del período (incluye días en cero) ───────────────────
-// A diferencia del resto de las agregaciones (que solo iteran sobre fechas
-// que ya tienen al menos un registro en histData), aquí construimos la lista
-// completa de días del período seleccionado y llenamos con 0 los que no
-// tengan ningún escaneo — así un hueco como "24-27 de agosto sin rondines"
-// aparece explícitamente en vez de simplemente no existir en la tabla.
 function obtenerRangoDiasDelPeriodo(){
   const selMes=document.getElementById('est-month-select');
   const mesVal=selMes?selMes.value:'';
@@ -1875,9 +1831,6 @@ function calcularRondinesPorDia(){
   const dias=obtenerRangoDiasDelPeriodo();
   if(dias.length===0)return{filas:[],diasSinRondines:0};
 
-  // Respeta turno/guardia; el objetivo diario (57) solo es válido sin esos
-  // filtros salvo el caso de puesto (target=3), así que ajustamos qué
-  // columnas mostrar en vez de inventar un objetivo prorrateado.
   const sinFiltrosDeCantidad=!estFilterTurno&&!estFilterGuardia&&!estFilterPuesto;
   const objetivoDia=estFilterPuesto?RONDAS_ESPERADAS_POR_TURNO:(sinFiltrosDeCantidad?TARGET:null);
 
@@ -1913,10 +1866,6 @@ function renderRondinesPorDia(){
   setText('e-dias-count',`${filas.length} días`);
   setText('e-dias-sin-rondines',diasSinRondines);
 
-  // Total de pendientes del período: suma de "faltantes" de cada día, usando
-  // el mismo objetivoDia (57 sin filtros, 3 si se filtra a un solo puesto,
-  // null —no calculable— si se filtra por turno o guardia). Se muestra
-  // arriba en la tarjeta "Total pendientes".
   if(objetivoDia===null){
     setText('e-total-pendientes','—');
     setText('e-total-pendientes-sub','no aplica con este filtro (turno/guardia)');
@@ -1951,8 +1900,6 @@ function renderEstadisticas(){
   const records=filtrarParaEstadisticas();
   setText('est-rec-count',`${records.length} registros`);
 
-  // Tarjetas resumen del período (arriba de todo): totales simples, antes de
-  // entrar a los derivados más específicos (ranking, ritmo, heatmap, etc.)
   setText('e-total-registros',records.length);
   const diasConDatos=new Set(records.map(r=>r._date?turnoDayDate_(r._date).getTime():null).filter(Boolean));
   const promedioDiario=diasConDatos.size>0?Math.round(records.length/diasConDatos.size):0;
@@ -2066,9 +2013,6 @@ function renderEstadisticas(){
     puestosEl.appendChild(row);
   });
 
-  // Puestos sin ninguna visita en el período filtrado — ya no tiene tarjeta
-  // propia (era la misma información que "Puestos cubiertos" nada más al
-  // revés), pero el conteo se sigue usando internamente aquí abajo.
   const sinVisitas=puestosArr.filter(p=>p.count===0);
   setText('e-puestos-cubiertos',ALL_POST_IDS.length-sinVisitas.length);
   setText('e-puestos-cubiertos-sub',`de ${ALL_POST_IDS.length} puestos`);
@@ -2106,9 +2050,6 @@ function renderEstadisticas(){
   const rachas=calcularRachasSinVisita(records);
   setText('e-rachas-count',`${rachas.length} puestos con huecos`);
 
-  // "Racha activa más larga" = el hueco que sigue abierto AHORA MISMO, no el
-  // peor hueco histórico (eso ya lo muestra "Puesto más olvidado" arriba).
-  // Es la señal más accionable: qué puesto necesita revisión hoy.
   const rachasActivas=rachas.filter(r=>r.rachaFinal>0).sort((a,b)=>b.rachaFinal-a.rachaFinal);
   if(rachasActivas.length>0){
     const peorActiva=rachasActivas[0];
