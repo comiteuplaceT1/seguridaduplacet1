@@ -661,12 +661,11 @@
   </div>
 </div>
 
-<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min</footer>
+<footer>UPLACE Periférico Torre 1 · Comité de Vigilancia · Turno: 07:00–07:00 · Auto-actualización cada 5 min · Diseñado por Pablo Cueto para la comunidad Uplace</footer>
 
 <script>
 // ── CREDENCIALES ──────────────────────────────────────────────────────────────
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw58vtg45Kus_PxiOHZFxeyvgXCbya1tV6W94sXxOzb_6MhgwwWdf-h_ydViWWT3G5z/exec";
-
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwvNxO81fDIgGSyZMuPT-tZBy-cPioSUmOtS_r_hVjZDrozOgP6zg5qSOBRC6H_7a9hvQ/exec";
 const TARGET   = 57; // 3 rondas x 19 puestos por turno de 24h
 
 const POSTS = [
@@ -693,6 +692,12 @@ const POSTS = [
 // Mapa id→nombre completo para dropdown
 const POST_LABELS = {};
 POSTS.forEach(p => { POST_LABELS[p.id] = `${p.id} ${p.name} (${p.level})`; });
+
+// ── COBERTURA POR PUESTO (reemplaza el modelo de "rondas por orden") ──────
+// Cuenta cuántas veces se escaneó cada puesto en el período dado, SIN asumir
+// que los guardias siguen el orden 1→N. En la práctica no lo hacen siempre,
+// y ese supuesto generaba falsos "0/3" y listas de "saltados" enormes que no
+// reflejaban la realidad. Contar visitas reales por puesto es más honesto.
 const ALL_POST_IDS = POSTS.map(p => p.id);
 const RONDAS_ESPERADAS_POR_TURNO = 3;
 
@@ -728,6 +733,9 @@ function calcularCumplimiento(records) {
 const SESSION_KEY = 'uplace_session_v2';
 function checkSession(){return localStorage.getItem(SESSION_KEY)==='active';}
 
+// Validación de contraseña vía JSONP contra el Apps Script (no via fetch()
+// normal, porque doGet() de Apps Script no manda cabeceras CORS). El backend
+// nunca revela la contraseña real, solo responde {ok:true|false}.
 function verificarPasswordBackend_(pass){
   return new Promise((resolve,reject)=>{
     const cbName='uplaceLoginCb_'+Date.now();
@@ -885,25 +893,98 @@ function populateGuardias(records){
   });
 }
 
+// ── CARGA BAJO DEMANDA DE MESES ARCHIVADOS ─────────────────────────────────
+
+function claveMesDeFecha_(fechaVal){
+  const[y,m]=fechaVal.split('-').map(Number);
+  return `${y}-${m}`;
+}
+
+function esMesYaCubiertoPorCargaInicial_(claveMes){
+  const hoy=new Date();
+  const mesActual=`${hoy.getFullYear()}-${hoy.getMonth()+1}`;
+  const mesAnteriorDate=new Date(hoy.getFullYear(),hoy.getMonth()-1,1);
+  const mesAnterior=`${mesAnteriorDate.getFullYear()}-${mesAnteriorDate.getMonth()+1}`;
+  return claveMes===mesActual||claveMes===mesAnterior;
+}
+
+// Devuelve true si tuvo que hacer una llamada de red (útil para mostrar un
+// indicador de carga); false si la fecha ya estaba cubierta o en caché.
+async function asegurarMesCargadoParaFecha_(fechaVal){
+  if(!fechaVal)return false;
+  const claveMes=claveMesDeFecha_(fechaVal);
+  if(esMesYaCubiertoPorCargaInicial_(claveMes))return false;
+  if(mesesYaCargados.has(claveMes))return false;
+
+  const res=await fetch(`${GOOGLE_SCRIPT_URL}?accion=mes&fecha=${fechaVal}`);
+  if(!res.ok)throw new Error(`Error ${res.status}: ${res.statusText}`);
+  const json=await res.json();
+  const rows=Array.isArray(json)?json:json.data||[];
+  allRecords=allRecords.concat(rows.filter(r=>(r['Rol']||'Guardia')==='Guardia').map(mapRowToFields_));
+  adminRecords=adminRecords.concat(rows.filter(r=>r['Rol']==='Administracion').map(mapRowToFields_));
+  mesesYaCargados.add(claveMes); // se marca aunque haya venido vacío (mes sin registros), para no reintentar
+  return true;
+}
+
 // ── FILTER STATE ──────────────────────────────────────────────────────────────
 let dashFilterDate='hoy',dashFilterDateVal='',dashFilterTurno='',dashFilterGuardia='';
 let filterDate='hoy',filterDateVal='',filterTurno='',filterGuardia='';
 let logFilterDate='hoy',logFilterDateVal='',logFilterTurno='',logFilterGuardia='';
 
 function setDashDateFilter(val,el){dashFilterDate=val;document.querySelectorAll('#dash-btn-hoy,#dash-btn-ayer,#dash-btn-custom').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('dash-date-picker').style.display=val==='custom'?'inline-block':'none';if(val!=='custom')renderDashboard(allRecords);}
-function onDashDatePick(){dashFilterDateVal=document.getElementById('dash-date-picker').value;if(dashFilterDateVal)renderDashboard(allRecords);}
+async function onDashDatePick(){
+  dashFilterDateVal=document.getElementById('dash-date-picker').value;
+  if(!dashFilterDateVal)return;
+  const picker=document.getElementById('dash-date-picker');
+  picker.disabled=true;
+  try{
+    await asegurarMesCargadoParaFecha_(dashFilterDateVal);
+  }catch(err){
+    alert('No se pudo cargar ese mes: '+err.message);
+  }finally{
+    picker.disabled=false;
+  }
+  renderDashboard(allRecords);
+}
 function setDashTurnoFilter(val,el){dashFilterTurno=val;document.querySelectorAll('#dash-btn-t-all,#dash-btn-t-d,#dash-btn-t-n').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderDashboard(allRecords);}
 function setDashGuardiaFilter(val){dashFilterGuardia=val;renderDashboard(allRecords);}
 
 function setDateFilter(val,el){filterDate=val;document.querySelectorAll('#btn-hoy,#btn-ayer,#btn-custom').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('date-picker').style.display=val==='custom'?'inline-block':'none';if(val!=='custom')renderCards();}
-function onDatePick(){filterDateVal=document.getElementById('date-picker').value;if(filterDateVal)renderCards();}
+async function onDatePick(){
+  filterDateVal=document.getElementById('date-picker').value;
+  if(!filterDateVal)return;
+  const picker=document.getElementById('date-picker');
+  picker.disabled=true;
+  try{
+    await asegurarMesCargadoParaFecha_(filterDateVal);
+  }catch(err){
+    alert('No se pudo cargar ese mes: '+err.message);
+  }finally{
+    picker.disabled=false;
+  }
+  renderCards();
+}
 function setTurnoFilter(val,el){filterTurno=val;document.querySelectorAll('#btn-t-all,#btn-t-d,#btn-t-n').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderCards();}
 function setGuardiaFilter(val){filterGuardia=val;renderCards();}
 
 function setLogDateFilter(val,el){logFilterDate=val;document.querySelectorAll('#btn-log-hoy,#btn-log-ayer,#btn-log-todos,#btn-log-custom').forEach(b=>b.classList.remove('active'));el.classList.add('active');document.getElementById('log-date-picker').style.display=val==='custom'?'inline-block':'none';if(val!=='custom')renderLog();}
-function onLogDatePick(){logFilterDateVal=document.getElementById('log-date-picker').value;if(logFilterDateVal)renderLog();}
+async function onLogDatePick(){
+  logFilterDateVal=document.getElementById('log-date-picker').value;
+  if(!logFilterDateVal)return;
+  const picker=document.getElementById('log-date-picker');
+  picker.disabled=true;
+  try{
+    await asegurarMesCargadoParaFecha_(logFilterDateVal);
+  }catch(err){
+    alert('No se pudo cargar ese mes: '+err.message);
+  }finally{
+    picker.disabled=false;
+  }
+  renderLog();
+}
 function setLogTurnoFilter(val,el){logFilterTurno=val;document.querySelectorAll('#btn-lt-all,#btn-lt-d,#btn-lt-n').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderLog();}
 function setLogGuardiaFilter(val){logFilterGuardia=val;renderLog();}
+
 
 // ── RENDER DASHBOARD ──────────────────────────────────────────────────────────
 function getTurnoWindowForDashFilter_(){
@@ -1499,6 +1580,8 @@ function renderAdmin(){
 }
 
 function exportarHistorialPDF(){
+  // Usa el diálogo de impresión del navegador ("Guardar como PDF") sobre la
+  // tabla actualmente filtrada — sin dependencias externas.
   if(!histFilteredCache.length){alert('No hay registros para exportar con los filtros actuales.');return;}
   const filas=histFilteredCache.map(r=>`<tr><td>${r.num}</td><td>${r.checkpoint}</td><td>${r.timestamp}</td><td>${r.turno}</td><td>${r.guardia}</td><td>${r.notas}</td></tr>`).join('');
   const ventana=window.open('','_blank');
@@ -1523,11 +1606,6 @@ function exportarHistorialPDF(){
   setTimeout(()=>ventana.print(),300);
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// EXPORT ESTADÍSTICAS — clona el panel completo (tarjetas, barras, tablas,
-// heatmap) ya renderizado tal como se ve en pantalla, y abre el diálogo de
-// impresión del navegador para "Guardar como PDF". No usa librerías externas.
-// ══════════════════════════════════════════════════════════════════════════
 function obtenerEstilosDocumento(){
   return Array.from(document.querySelectorAll('style')).map(s=>s.textContent).join('\n');
 }
@@ -1583,7 +1661,7 @@ function exportarEstadisticasPDF(){
   setTimeout(()=>ventana.print(),500);
 }
 
-// ── Filtros de Estadísticas (mismo patrón que Historial, + Hoy/Ayer) ──────
+// ══════════════════════════════════════════════════════════════════════════
 let estFilterMode='todos',estFilterFrom='',estFilterTo='';
 let estFilterTurno='',estFilterGuardia='',estFilterPuesto='';
 
@@ -1688,9 +1766,6 @@ function calcularEstadisticasGuardias(records){
   return porGuardia;
 }
 
-// Tiempo entre escaneos consecutivos del mismo guardia, agrupado por turno
-// de 24h (para no mezclar el último escaneo de un turno con el primero del
-// siguiente). Ignora huecos mayores a 4h (cambios de turno, descansos largos).
 function calcularTiempoEntreEscaneos(records){
   const porGuardiaTurno={};
   records.forEach(r=>{
@@ -1723,6 +1798,9 @@ function turnoDayDate_(d){
   return dd;
 }
 
+// Racha de días consecutivos SIN visita, por puesto. "Racha máxima" = la peor
+// racha que ha tenido ese puesto en todo el período filtrado. "Racha actual"
+// = cuántos días lleva sin visita justo al final del período (si sigue activa).
 function calcularRachasSinVisita(records){
   const diasSet=new Set();
   records.forEach(r=>{if(r._date)diasSet.add(turnoDayDate_(r._date).getTime());});
@@ -1752,8 +1830,6 @@ function calcularRachasSinVisita(records){
   }).filter(p=>p.rachaMax>0).sort((a,b)=>b.rachaMax-a.rachaMax);
 }
 
-// Comparativo mes contra mes. Ignora el filtro de mes/fecha a propósito (para
-// poder comparar entre meses), pero sí respeta turno/guardia/puesto.
 function calcularComparativoMensual(){
   const records=histData.filter(r=>{
     if(estFilterTurno&&r.turno!==estFilterTurno)return false;
@@ -1791,6 +1867,11 @@ function calcularHeatmapPuestoHora(records){
 }
 
 // ── Rondines por día del período (incluye días en cero) ───────────────────
+// A diferencia del resto de las agregaciones (que solo iteran sobre fechas
+// que ya tienen al menos un registro en histData), aquí construimos la lista
+// completa de días del período seleccionado y llenamos con 0 los que no
+// tengan ningún escaneo — así un hueco como "24-27 de agosto sin rondines"
+// aparece explícitamente en vez de simplemente no existir en la tabla.
 function obtenerRangoDiasDelPeriodo(){
   const selMes=document.getElementById('est-month-select');
   const mesVal=selMes?selMes.value:'';
@@ -1900,6 +1981,8 @@ function renderEstadisticas(){
   const records=filtrarParaEstadisticas();
   setText('est-rec-count',`${records.length} registros`);
 
+  // Tarjetas resumen del período (arriba de todo): totales simples, antes de
+  // entrar a los derivados más específicos (ranking, ritmo, heatmap, etc.)
   setText('e-total-registros',records.length);
   const diasConDatos=new Set(records.map(r=>r._date?turnoDayDate_(r._date).getTime():null).filter(Boolean));
   const promedioDiario=diasConDatos.size>0?Math.round(records.length/diasConDatos.size):0;
@@ -2013,6 +2096,7 @@ function renderEstadisticas(){
     puestosEl.appendChild(row);
   });
 
+
   const sinVisitas=puestosArr.filter(p=>p.count===0);
   setText('e-puestos-cubiertos',ALL_POST_IDS.length-sinVisitas.length);
   setText('e-puestos-cubiertos-sub',`de ${ALL_POST_IDS.length} puestos`);
@@ -2046,7 +2130,6 @@ function renderEstadisticas(){
     dayHistEl.appendChild(wrap);
   });
 
-  // Rachas sin visita por puesto
   const rachas=calcularRachasSinVisita(records);
   setText('e-rachas-count',`${rachas.length} puestos con huecos`);
 
@@ -2076,7 +2159,6 @@ function renderEstadisticas(){
     });
   }
 
-  // Comparativo mes contra mes (ignora filtro de mes/fecha a propósito)
   const comparativo=calcularComparativoMensual();
   setText('e-meses-count',`${comparativo.length} meses`);
   const compEl=document.getElementById('e-comparativo-mensual');
@@ -2093,8 +2175,7 @@ function renderEstadisticas(){
       compEl.appendChild(row);
     });
   }
-
-  // Mapa de calor puesto × hora — incluye el nombre del puesto, no solo el ID
+  
   const heatmap=calcularHeatmapPuestoHora(records);
   const maxCelda=Math.max(...Object.values(heatmap).flat(),1);
   setText('e-heatmap-count',`${ALL_POST_IDS.length} puestos × 24h`);
